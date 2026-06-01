@@ -13,8 +13,6 @@ from jinja2 import (
 )
 from referencing import Registry
 
-from jsmn_tools.spec import ASYNCAPI_3_0, OPENAPI_3_1
-
 from .descriptor import (
     ArrayDescriptor,
     ArrayKind,
@@ -29,7 +27,7 @@ from .descriptor import (
     sum_ntoks_with_cache,
 )
 from .filters import ShimMode, filters, tests
-from .flatten import flatten_with_resolver
+from .flatten import flatten_registry
 from .ir import CArray, CDecl, CStruct, CType, CUnion, Dim, Field, FixedDims
 from .mangle import dim_walk, make_maybe, make_optional, make_vla, mangle
 
@@ -277,19 +275,13 @@ class CodegenBundle(TypedDict):
 
 
 def bundle_codegen(reg: Registry) -> tuple[Resolver, CodegenBundle]:
-    openapi = [r.contents for r in reg.values() if "openapi" in r.contents]
-    asyncapi = [r.contents for r in reg.values() if "asyncapi" in r.contents]
     resolver = reg.resolver()
-    flattened = flatten_with_resolver(
-        *openapi,
-        resolver=resolver,
-        draft=OPENAPI_3_1,
-    )
-    flattened |= flatten_with_resolver(
-        *asyncapi,
-        resolver=resolver,
-        draft=ASYNCAPI_3_0,
-    )
+    flattened = flatten_registry(reg)
+    specifications = [
+        r.contents
+        for r in reg.values()
+        if "openapi" in r.contents or "asyncapi" in r.contents
+    ]
     sorted_user = sort_declarations(flattened.decls)
     extended = extend_declarations(sorted_user)
     strings, table = build_tables(sorted_user)
@@ -300,7 +292,7 @@ def bundle_codegen(reg: Registry) -> tuple[Resolver, CodegenBundle]:
         descriptors=descriptors,
         table=table,
         strings=list(strings.strings()),
-        specifications=openapi + asyncapi,
+        specifications=specifications,
     )
 
 

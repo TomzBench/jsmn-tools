@@ -24,7 +24,14 @@ from jinja2 import Environment
 from referencing import Registry, Resource
 from ruamel.yaml import YAML
 
-from jsmn_tools.jsmn.prepare import ShimMode, bundle_codegen, extend_codegen
+from jsmn_tools.jsmn.flatten import flatten_registry
+from jsmn_tools.jsmn.prepare import (
+    ShimMode,
+    bundle_codegen,
+    extend_codegen,
+    sort_declarations,
+)
+from jsmn_tools.lang.python import render_models
 from jsmn_tools.plugin.loader import (
     BundleResult,
     Plugin,
@@ -90,18 +97,33 @@ def _merge_bundles(a: BundleResult, b: BundleResult) -> BundleResult:
     )
 
 
-def _build_jinja_environment(args: argparse.Namespace) -> Environment:
-    env = _parse_kv(args.env)
-    plugin = _resolve_plugin(args.plugin) if args.plugin else None
+def _collect_registry(
+    *specs: str,
+    env: dict[str, str],
+    plugin: Plugin | None = None,
+    prefix: str | None = None,
+) -> Registry:
+    """Build a Registry from spec files and plugin resources."""
 
     resources: list[Resource] = []
-    if args.specs:
-        resources += [
-            load_resource(Path(s), prefix=args.prefix) for s in args.specs
-        ]
+    if specs:
+        resources += [load_resource(Path(s), prefix=prefix) for s in specs]
     if plugin:
         resources += plugin.collect(env)
     registry = resources @ Registry()
+    return registry
+
+
+def _build_jinja_environment(args: argparse.Namespace) -> Environment:
+    env = _parse_kv(args.env)
+    prefix = getattr(args, "prefix", None)
+    plugin = _resolve_plugin(args.plugin) if args.plugin else None
+    registry = _collect_registry(
+        *args.specs,
+        prefix=prefix,
+        env=env,
+        plugin=plugin,
+    )
 
     jinja_hook = getattr(plugin, "jinja", None) if plugin else None
     jinja_env = jinja_hook(env) if jinja_hook else None
@@ -118,7 +140,7 @@ def _build_jinja_environment(args: argparse.Namespace) -> Environment:
         env_obj,
         bundle,
         resolver=resolver,
-        prefix=args.prefix,
+        prefix=prefix,
         shim_mode=shim_mode,
     )
 
@@ -208,6 +230,27 @@ def _cmd_generate(args: argparse.Namespace) -> None:
     (out / "jsmn.h").write_text(jsmn.render(), encoding="utf-8")
     (out / f"{args.name}.h").write_text(preset_h.render(), encoding="utf-8")
     (out / f"{args.name}.c").write_text(preset_c.render(), encoding="utf-8")
+
+
+def _cmd_types(args: argparse.Namespace) -> None:
+    if args.lang != "python":
+        _die("unsupported --lang: %s (only 'python')", args.lang)
+    env = _parse_kv(args.env)
+    prefix = getattr(args, "prefix", None)
+    plugin = _resolve_plugin(args.plugin) if args.plugin else None
+    registry = _collect_registry(
+        *args.specs,
+        prefix=prefix,
+        env=env,
+        plugin=plugin,
+    )
+    result = flatten_registry(registry)
+    for err in result.errors:
+        print(f"warning: {err}", file=sys.stderr)
+    text = render_models(sort_declarations(result.decls))
+    out = Path(args.output)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(text, encoding="utf-8")
 
 
 # -- argparse ----------------------------------------------------------------
@@ -303,6 +346,31 @@ def main() -> None:
     )
 
     p.set_defaults(func=_cmd_generate)
+
+    # types
+    p = subparsers.add_parser(
+        "types", help="generate language model definitions from specs"
+    )
+    p.add_argument("specs", nargs="*", help="YAML spec files")
+    p.add_argument(
+        "--lang",
+        required=True,
+        choices=["python"],
+        help="target language for the model definitions",
+    )
+    p.add_argument(
+        "--output", required=True, help="output file (e.g. models.pyi)"
+    )
+    p.add_argument("--plugin", metavar="PATH", help="plugin file or directory")
+    p.add_argument(
+        "--env",
+        action="append",
+        metavar="KEY=VALUE",
+        default=[],
+        help="config passed to plugin",
+    )
+    p.add_argument("--prefix", help="ref-resolution prefix for CLI specs")
+    p.set_defaults(func=_cmd_types)
 
     args = parser.parse_args()
     if hasattr(args, "func"):

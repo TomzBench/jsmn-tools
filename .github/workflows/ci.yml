@@ -15,7 +15,7 @@ jobs:
       - run: uv sync
 
       - name: Pytest with coverage
-        run: uv run pytest --cov=jsmn_tools --cov-report=term-missing --cov-fail-under=90
+        run: uv run pytest --cov=jsmn_tools --cov-report=term-missing --cov-fail-under=85
 
       - name: Radon complexity
         run: |

@@ -1,0 +1,20 @@
+{% if structs %}
+from typing import {% if uses_notrequired %}NotRequired, {% endif %}TypedDict
+{% endif %}
+{% for s in structs %}
+
+class {{ s.ctype.name }}(TypedDict):
+{% for f in s.fields %}
+    {{ f.name }}: {{ f | py_field }}
+{% else %}
+    pass
+{% endfor %}
+{% endfor %}
+{% if aliases %}
+{% if structs %}
+
+{% endif %}
+{% for a in aliases %}
+type {{ a.ctype.name }} = {{ a | alias_rhs }}
+{% endfor %}
+{% endif %}

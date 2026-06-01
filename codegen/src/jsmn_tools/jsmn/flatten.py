@@ -9,10 +9,11 @@ from urllib.parse import urldefrag
 
 from jsmn_tools.jsmn.ir import CArray, CDecl, CStruct, CType, Dim, Field
 from jsmn_tools.node import Location, ObjectNode
-from jsmn_tools.spec import OPENAPI_3_1
+from jsmn_tools.spec import ASYNCAPI_3_0, OPENAPI_3_1
 from jsmn_tools.walk import Step, walk
 
 if TYPE_CHECKING:
+    from referencing import Registry
     from referencing._core import Resolver
 
 
@@ -259,3 +260,23 @@ def flatten_with_resolver[K: str](
         return acc
 
     return reduce(step, walk(*specs, draft=draft), FlattenResult.empty())
+
+
+def flatten_registry(reg: Registry) -> FlattenResult:
+    """Flatten every OpenAPI/AsyncAPI document in a registry into one IR result.
+
+    Splits documents by draft (presence of an ``openapi``/``asyncapi`` key) and
+    runs each under the matching grammar. This is the language-neutral entry
+    point shared by the C codegen bundle and the model backends in
+    jsmn_tools.lang.
+    """
+    openapi = [r.contents for r in reg.values() if "openapi" in r.contents]
+    asyncapi = [r.contents for r in reg.values() if "asyncapi" in r.contents]
+    resolver = reg.resolver()
+    result = flatten_with_resolver(
+        *openapi, resolver=resolver, draft=OPENAPI_3_1
+    )
+    result |= flatten_with_resolver(
+        *asyncapi, resolver=resolver, draft=ASYNCAPI_3_0
+    )
+    return result
