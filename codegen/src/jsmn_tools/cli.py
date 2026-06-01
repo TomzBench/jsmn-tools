@@ -31,7 +31,7 @@ from jsmn_tools.jsmn.prepare import (
     extend_codegen,
     sort_declarations,
 )
-from jsmn_tools.lang.python import render_models
+from jsmn_tools.lang import python, typescript
 from jsmn_tools.plugin.loader import (
     BundleResult,
     Plugin,
@@ -232,9 +232,16 @@ def _cmd_generate(args: argparse.Namespace) -> None:
     (out / f"{args.name}.c").write_text(preset_c.render(), encoding="utf-8")
 
 
+_RENDERERS = {
+    "python": python.render_models,
+    "typescript": typescript.render_models,
+}
+
+
 def _cmd_types(args: argparse.Namespace) -> None:
-    if args.lang != "python":
-        _die("unsupported --lang: %s (only 'python')", args.lang)
+    render = _RENDERERS.get(args.lang)
+    if render is None:
+        _die("unsupported --lang: %s", args.lang)
     env = _parse_kv(args.env)
     prefix = getattr(args, "prefix", None)
     plugin = _resolve_plugin(args.plugin) if args.plugin else None
@@ -247,7 +254,7 @@ def _cmd_types(args: argparse.Namespace) -> None:
     result = flatten_registry(registry)
     for err in result.errors:
         print(f"warning: {err}", file=sys.stderr)
-    text = render_models(sort_declarations(result.decls))
+    text = render(sort_declarations(result.decls))
     out = Path(args.output)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(text, encoding="utf-8")
@@ -355,7 +362,7 @@ def main() -> None:
     p.add_argument(
         "--lang",
         required=True,
-        choices=["python"],
+        choices=["python", "typescript"],
         help="target language for the model definitions",
     )
     p.add_argument(
