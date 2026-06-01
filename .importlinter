@@ -6,6 +6,16 @@ root_package = jsmn_tools
 #        +-- spec --+
 #        +-- walk --+  (independent peers)
 #        +-- node <-+
+#
+# lang (model backends) sits above jsmn, peer to plugin.
+
+[importlinter:contract:lang-over-jsmn]
+name = lang above jsmn
+type = layers
+layers =
+    jsmn_tools.lang
+    jsmn_tools.jsmn
+    jsmn_tools.node
 
 [importlinter:contract:jsmn-over-foundations]
 name = jsmn above spec, walk, node
