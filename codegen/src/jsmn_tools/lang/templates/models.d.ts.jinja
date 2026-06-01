@@ -1,0 +1,18 @@
+{% for s in structs %}
+{% if not loop.first %}
+
+{% endif %}
+export interface {{ s.ctype.name | camel_case(upper=True) }} {
+{% for f in s.fields %}
+  {{ f | ts_member }};
+{% endfor %}
+}
+{% endfor %}
+{% if aliases %}
+{% if structs %}
+
+{% endif %}
+{% for a in aliases %}
+export type {{ a.ctype.name | camel_case(upper=True) }} = {{ a | alias_rhs }};
+{% endfor %}
+{% endif %}

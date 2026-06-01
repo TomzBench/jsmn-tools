@@ -1,0 +1,199 @@
+# serializer version: 1
+# name: test_render_models[arrays-python]
+  '''
+  from typing import TypedDict
+  
+  class point(TypedDict):
+      x: int
+      y: int
+  
+  class array_combos(TypedDict):
+      d_vvv: list[list[list[int]]]
+      d_vvf: list[list[list[int]]]
+      d_vfv: list[list[list[int]]]
+      d_vff: list[list[list[int]]]
+      d_fvv: list[list[list[int]]]
+      d_fvf: list[list[list[int]]]
+      d_ffv: list[list[list[int]]]
+      d_fff: list[list[list[int]]]
+  
+  class array_of_objects(TypedDict):
+      fixed_points: list[point]
+      vla_points: list[point]
+  
+  type top_label = str
+  type top_vla_points = list[point]
+  
+  '''
+# ---
+# name: test_render_models[arrays-typescript]
+  '''
+  export interface Point {
+    x: number;
+    y: number;
+  }
+  
+  export interface ArrayCombos {
+    d_vvv: number[][][];
+    d_vvf: number[][][];
+    d_vfv: number[][][];
+    d_vff: number[][][];
+    d_fvv: number[][][];
+    d_fvf: number[][][];
+    d_ffv: number[][][];
+    d_fff: number[][][];
+  }
+  
+  export interface ArrayOfObjects {
+    fixed_points: Point[];
+    vla_points: Point[];
+  }
+  
+  export type TopLabel = string;
+  export type TopVlaPoints = Point[];
+  
+  '''
+# ---
+# name: test_render_models[jsmn-every-type.openapi-python]
+  '''
+  from typing import TypedDict
+  
+  class every_type(TypedDict):
+      p_u8: int
+      p_i8: int
+      p_u16: int
+      p_i16: int
+      p_u32: int
+      p_i32: int
+      p_u64: int
+      p_i64: int
+      p_bool: bool
+      p_f32: float
+      p_f64: float
+      p_str: str
+  
+  '''
+# ---
+# name: test_render_models[jsmn-every-type.openapi-typescript]
+  '''
+  export interface EveryType {
+    p_u8: number;
+    p_i8: number;
+    p_u16: number;
+    p_i16: number;
+    p_u32: number;
+    p_i32: number;
+    p_u64: number;
+    p_i64: number;
+    p_bool: boolean;
+    p_f32: number;
+    p_f64: number;
+    p_str: string;
+  }
+  
+  '''
+# ---
+# name: test_render_models[jsmn-vla.openapi-python]
+  '''
+  from typing import TypedDict
+  
+  class vla_combos(TypedDict):
+      d_vvv: list[list[list[int]]]
+      d_vvf: list[list[list[int]]]
+      d_vfv: list[list[list[int]]]
+      d_vff: list[list[list[int]]]
+      d_fvv: list[list[list[int]]]
+      d_fvf: list[list[list[int]]]
+      d_ffv: list[list[list[int]]]
+      d_fff: list[list[list[int]]]
+  
+  '''
+# ---
+# name: test_render_models[jsmn-vla.openapi-typescript]
+  '''
+  export interface VlaCombos {
+    d_vvv: number[][][];
+    d_vvf: number[][][];
+    d_vfv: number[][][];
+    d_vff: number[][][];
+    d_fvv: number[][][];
+    d_fvf: number[][][];
+    d_ffv: number[][][];
+    d_fff: number[][][];
+  }
+  
+  '''
+# ---
+# name: test_render_models[jsmn.openapi-python]
+  '''
+  from typing import NotRequired, TypedDict
+  
+  class child(TypedDict):
+      flag: bool
+      name: str
+  
+  class parent(TypedDict):
+      nested: child
+      count: NotRequired[int]
+      items: list[int]
+      tags: list[str]
+  
+  class sibling(TypedDict):
+      count: NotRequired[int]
+  
+  '''
+# ---
+# name: test_render_models[jsmn.openapi-typescript]
+  '''
+  export interface Child {
+    flag: boolean;
+    name: string;
+  }
+  
+  export interface Parent {
+    nested: Child;
+    count?: number;
+    items: number[];
+    tags: string[];
+  }
+  
+  export interface Sibling {
+    count?: number;
+  }
+  
+  '''
+# ---
+# name: test_render_models[optionals-python]
+  '''
+  from typing import NotRequired, TypedDict
+  
+  class detail(TypedDict):
+      code: int
+      message: str
+  
+  class record(TypedDict):
+      id: int
+      count: NotRequired[int]
+      label: NotRequired[str]
+      detail: NotRequired[detail]
+      values: NotRequired[list[int]]
+  
+  '''
+# ---
+# name: test_render_models[optionals-typescript]
+  '''
+  export interface Detail {
+    code: number;
+    message: string;
+  }
+  
+  export interface Record {
+    id: number;
+    count?: number;
+    label?: string;
+    detail?: Detail;
+    values?: number[];
+  }
+  
+  '''
+# ---

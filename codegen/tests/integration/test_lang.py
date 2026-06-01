@@ -8,7 +8,7 @@ from ruamel.yaml import YAML
 
 from jsmn_tools.jsmn.flatten import flatten_registry
 from jsmn_tools.jsmn.prepare import sort_declarations
-from jsmn_tools.lang.python import render_models
+from jsmn_tools.lang import python, typescript
 
 yaml = YAML(typ="safe")
 FIXTURES = Path(__file__).parent.parent / "fixtures"
@@ -25,6 +25,11 @@ SPECS = [
     "runtime/optionals.yaml",
 ]
 
+RENDERERS = {
+    "python": python.render_models,
+    "typescript": typescript.render_models,
+}
+
 
 @pytest.fixture(params=SPECS, ids=lambda p: Path(p).stem)
 def decls(request: pytest.FixtureRequest) -> list[Any]:
@@ -36,5 +41,6 @@ def decls(request: pytest.FixtureRequest) -> list[Any]:
     return sort_declarations(flatten_registry(registry).decls)
 
 
-def test_render_models(decls: list[Any], snapshot) -> None:
-    assert render_models(decls) == snapshot
+@pytest.mark.parametrize("lang", sorted(RENDERERS))
+def test_render_models(decls: list[Any], lang: str, snapshot) -> None:
+    assert RENDERERS[lang](decls) == snapshot
