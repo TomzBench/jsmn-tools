@@ -95,7 +95,7 @@
 # ---
 # name: test_render_models[jsmn-vla.openapi-python]
   '''
-  from typing import TypedDict
+  from typing import NotRequired, TypedDict
   
   class vla_combos(TypedDict):
       d_vvv: list[list[list[int]]]
@@ -106,6 +106,23 @@
       d_fvf: list[list[list[int]]]
       d_ffv: list[list[list[int]]]
       d_fff: list[list[list[int]]]
+  
+  class named_host(TypedDict):
+      row: named_row
+      maybe_row: NotRequired[named_row]
+  
+  class twin_host(TypedDict):
+      pick: twin_a
+  
+  class fixed_host(TypedDict):
+      row: fixed_row
+      maybe_row: NotRequired[fixed_row]
+      grid: list[fixed_row]
+  
+  type named_row = list[int]
+  type twin_a = list[int]
+  type twin_b = list[int]
+  type fixed_row = list[int]
   
   '''
 # ---
@@ -121,6 +138,26 @@
     d_ffv: number[][][];
     d_fff: number[][][];
   }
+  
+  export interface NamedHost {
+    row: NamedRow;
+    maybe_row?: NamedRow;
+  }
+  
+  export interface TwinHost {
+    pick: TwinA;
+  }
+  
+  export interface FixedHost {
+    row: FixedRow;
+    maybe_row?: FixedRow;
+    grid: FixedRow[];
+  }
+  
+  export type NamedRow = number[];
+  export type TwinA = number[];
+  export type TwinB = number[];
+  export type FixedRow = number[];
   
   '''
 # ---

@@ -12,17 +12,20 @@
 struct {{ decl.ctype.name }} {
 {% for f in decl.fields %}
 {% set c_name = (decl | location("properties", f.name, "x-jsmn-rename")) or (f.name | caseify(rename_all) if rename_all else f.name) %}
-    {{ (f.ctype | qualifier ~ ' ' ~ f.ctype.name) | trim }} {{ c_name }}{{ f.ctype.dims | dimensions }};
+{% set t = f.ctype | raw %}
+    {{ (t | qualifier ~ ' ' ~ t.name) | trim }} {{ c_name }}{{ t.dims | dimensions }};
 {% endfor %}
 };
 {% elif decl is union_decl %}
 union {{ decl.ctype.name }} {
 {% for v in decl.variants %}
-    {{ (v.ctype | qualifier ~ ' ' ~ v.ctype.name) | trim }} {{ v.name }}{{ v.ctype.dims | dimensions }};
+{% set t = v.ctype | raw %}
+    {{ (t | qualifier ~ ' ' ~ t.name) | trim }} {{ v.name }}{{ t.dims | dimensions }};
 {% endfor %}
 };
 {% elif decl is array_decl %}
-typedef {{ (decl.elem | qualifier ~ ' ' ~ decl.elem.name) | trim }} {{ decl.ctype.name }}[{{ decl.max }}];
+{% set t = decl.elem | raw %}
+typedef {{ (t | qualifier ~ ' ' ~ t.name) | trim }} {{ decl.ctype.name }}[{{ decl.max }}]{{ t.dims | dimensions }};
 {% endif +%}
 {% endfor -%}
 
