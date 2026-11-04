@@ -102,6 +102,9 @@ def _seek_ctype(schema: Any, loc: Location, curr_resolver: Resolver) -> CType:  
     if "$ref" in schema:
         resolved = _follow_ref(schema, loc, curr_resolver)
         (target_location, target_contents, target_resolver) = resolved
+        if "x-jsmn-type" in target_contents:
+            # A named type is referenced by name; its shape is its own decl.
+            return CType(target_contents["x-jsmn-type"])
         return _seek_ctype(target_contents, target_location, target_resolver)
     ty: TypeKey = schema.get("type")
     assert ty in TypeKey

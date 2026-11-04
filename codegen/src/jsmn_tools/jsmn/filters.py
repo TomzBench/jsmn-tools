@@ -14,6 +14,7 @@ from .descriptor import (
     FieldDescriptor,
     Key,
     StructDescriptor,
+    Table,
 )
 from .ir import (
     CArray,
@@ -195,6 +196,15 @@ def filters(
         else:
             return "struct"
 
+    def raw(ctype: CType) -> CType:
+        """Spell a named fixed array as its element type and count."""
+        d = cdecl_index.get(ctype.name)
+        if isinstance(d, CArray) and d.min == d.max:
+            return CType(
+                d.elem.name, (Dim(d.max, d.max), *d.elem.dims, *ctype.dims)
+            )
+        return ctype
+
     def _resolve_ctype(ctype: CType) -> str:
         if ctype.name in Primitive:
             return f"JT_PRIM({_PRIM_KINDS[Primitive(ctype.name)]})"
@@ -255,8 +265,11 @@ def filters(
         if isinstance(a.elem, CType):
             if a.elem.name in Primitive:
                 return f"sizeof({a.elem.name})"
-            return f"sizeof(struct {a.elem.name})"
-        child = table[a.elem]
+            if not isinstance(cdecl_index.get(a.elem.name), CArray):
+                return f"sizeof(struct {a.elem.name})"
+            child = table[Key(Table.ARRAY, array_index[a.elem.name])]
+        else:
+            child = table[a.elem]
         assert isinstance(child, ArrayDescriptor)
         if child.kind in (ArrayKind.FIXED, ArrayKind.STRING):
             return "0"
@@ -366,6 +379,7 @@ def filters(
         "arrays": arrays,
         "table_kind": table_kind,
         "qualifier": qualifier,
+        "raw": raw,
         "snake_case": snake_case,
         "camel_case": camel_case,
         "json_pointer": json_pointer,

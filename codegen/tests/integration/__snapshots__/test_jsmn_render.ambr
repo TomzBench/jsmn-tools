@@ -85,6 +85,27 @@
   #define JSMN_VLA_COMBOS_KEY JT_STRUCT(0)
   #define JSMN_VLA_COMBOS_LEN (5761)
   #define JSMN_VLA_COMBOS_NTOKS (697)
+  #define JSMN_NAMED_HOST_KEY JT_STRUCT(1)
+  #define JSMN_NAMED_HOST_LEN (47)
+  #define JSMN_NAMED_HOST_NTOKS (11)
+  #define JSMN_TWIN_HOST_KEY JT_STRUCT(2)
+  #define JSMN_TWIN_HOST_LEN (22)
+  #define JSMN_TWIN_HOST_NTOKS (5)
+  #define JSMN_FIXED_HOST_KEY JT_STRUCT(3)
+  #define JSMN_FIXED_HOST_LEN (68)
+  #define JSMN_FIXED_HOST_NTOKS (17)
+  #define JSMN_NAMED_ROW_KEY JT_ARRAY(15)
+  #define JSMN_NAMED_ROW_LEN (13)
+  #define JSMN_NAMED_ROW_NTOKS (4)
+  #define JSMN_TWIN_A_KEY JT_ARRAY(17)
+  #define JSMN_TWIN_A_LEN (13)
+  #define JSMN_TWIN_A_NTOKS (3)
+  #define JSMN_TWIN_B_KEY JT_ARRAY(18)
+  #define JSMN_TWIN_B_LEN (13)
+  #define JSMN_TWIN_B_NTOKS (3)
+  #define JSMN_FIXED_ROW_KEY JT_ARRAY(20)
+  #define JSMN_FIXED_ROW_LEN (9)
+  #define JSMN_FIXED_ROW_NTOKS (3)
   
   struct vla__u32__n3 {
       uint32_t len;
@@ -139,6 +160,65 @@
       uint32_t d_fff[5][4][3];
   };
   
+  struct named_row {
+      uint32_t len;
+      uint8_t _pad[4];
+      uint8_t items[3];
+  };
+  
+  union union1__named_row {
+      struct named_row value;
+  };
+  
+  struct optional__named_row {
+      bool present;
+      union union1__named_row maybe;
+  };
+  
+  struct named_host {
+      struct named_row row;
+      struct optional__named_row maybe_row;
+  };
+  
+  struct twin_a {
+      uint32_t len;
+      uint8_t _pad[4];
+      uint16_t items[2];
+  };
+  
+  struct twin_b {
+      uint32_t len;
+      uint8_t _pad[4];
+      uint16_t items[2];
+  };
+  
+  struct twin_host {
+      struct twin_a pick;
+  };
+  
+  typedef uint8_t fixed_row[2];
+  
+  union union1__fixed_row {
+      uint8_t value[2];
+  };
+  
+  struct optional__fixed_row {
+      bool present;
+      union union1__fixed_row maybe;
+  };
+  
+  struct vla__fixed_row__n2 {
+      uint32_t len;
+      uint8_t _pad[4];
+      uint8_t items[2][2];
+  };
+  
+  struct fixed_host {
+      uint8_t row[2];
+      struct optional__fixed_row maybe_row;
+      struct vla__fixed_row__n2 grid;
+  };
+  
   int32_t jsmn_decode(
       jsmntok_t *toks,
       uint32_t ntoks,
@@ -183,6 +263,125 @@
       uint8_t *dst,
       uint32_t dlen,
       const struct vla_combos *src);
+  
+  int32_t jsmn_decode_named_host_tok(
+      struct named_host *dst,
+      const char *src,
+      uint32_t slen,
+      jsmntok_t *toks,
+      uint32_t ntoks);
+  
+  int32_t jsmn_decode_named_host(
+      struct named_host *dst,
+      const char *src,
+      uint32_t slen);
+  
+  int32_t jsmn_encode_named_host(
+      uint8_t *dst,
+      uint32_t dlen,
+      const struct named_host *src);
+  
+  int32_t jsmn_decode_twin_host_tok(
+      struct twin_host *dst,
+      const char *src,
+      uint32_t slen,
+      jsmntok_t *toks,
+      uint32_t ntoks);
+  
+  int32_t jsmn_decode_twin_host(
+      struct twin_host *dst,
+      const char *src,
+      uint32_t slen);
+  
+  int32_t jsmn_encode_twin_host(
+      uint8_t *dst,
+      uint32_t dlen,
+      const struct twin_host *src);
+  
+  int32_t jsmn_decode_fixed_host_tok(
+      struct fixed_host *dst,
+      const char *src,
+      uint32_t slen,
+      jsmntok_t *toks,
+      uint32_t ntoks);
+  
+  int32_t jsmn_decode_fixed_host(
+      struct fixed_host *dst,
+      const char *src,
+      uint32_t slen);
+  
+  int32_t jsmn_encode_fixed_host(
+      uint8_t *dst,
+      uint32_t dlen,
+      const struct fixed_host *src);
+  
+  int32_t jsmn_decode_named_row_tok(
+      struct named_row *dst,
+      const char *src,
+      uint32_t slen,
+      jsmntok_t *toks,
+      uint32_t ntoks);
+  
+  int32_t jsmn_decode_named_row(
+      struct named_row *dst,
+      const char *src,
+      uint32_t slen);
+  
+  int32_t jsmn_encode_named_row(
+      uint8_t *dst,
+      uint32_t dlen,
+      const struct named_row *src);
+  
+  int32_t jsmn_decode_twin_a_tok(
+      struct twin_a *dst,
+      const char *src,
+      uint32_t slen,
+      jsmntok_t *toks,
+      uint32_t ntoks);
+  
+  int32_t jsmn_decode_twin_a(
+      struct twin_a *dst,
+      const char *src,
+      uint32_t slen);
+  
+  int32_t jsmn_encode_twin_a(
+      uint8_t *dst,
+      uint32_t dlen,
+      const struct twin_a *src);
+  
+  int32_t jsmn_decode_twin_b_tok(
+      struct twin_b *dst,
+      const char *src,
+      uint32_t slen,
+      jsmntok_t *toks,
+      uint32_t ntoks);
+  
+  int32_t jsmn_decode_twin_b(
+      struct twin_b *dst,
+      const char *src,
+      uint32_t slen);
+  
+  int32_t jsmn_encode_twin_b(
+      uint8_t *dst,
+      uint32_t dlen,
+      const struct twin_b *src);
+  
+  int32_t jsmn_decode_fixed_row_tok(
+      fixed_row *dst,
+      const char *src,
+      uint32_t slen,
+      jsmntok_t *toks,
+      uint32_t ntoks);
+  
+  int32_t jsmn_decode_fixed_row(
+      fixed_row *dst,
+      const char *src,
+      uint32_t slen);
+  
+  int32_t jsmn_encode_fixed_row(
+      uint8_t *dst,
+      uint32_t dlen,
+      const fixed_row *src);
   
   
   '''
@@ -467,6 +666,10 @@
       "d_fvf\0" /* 30 */
       "d_ffv\0" /* 36 */
       "d_fff\0" /* 42 */
+      "row\0" /* 48 */
+      "maybe_row\0" /* 52 */
+      "pick\0" /* 62 */
+      "grid\0" /* 67 */
   ;
   
   static const struct jt_array jsmn_arrays[] = {
@@ -498,6 +701,22 @@
       { JT_KIND_FIXED, 0, 5, 0, JT_ARRAY(6) },
       /* [13] fixed uint32_t max=5 @ /forge:~1~1test~1render-vla~1v0/components/schemas/vla_combos */
       { JT_KIND_FIXED, 0, 5, 0, JT_ARRAY(8) },
+      /* [14] vla vla__u8__n3 max=3 @ /forge:~1~1test~1render-vla~1v0/components/schemas/named_row */
+      { JT_KIND_VLA, 0, 3, sizeof(uint8_t), JT_PRIM(JT_KIND_U8) },
+      /* [15] vla named_row max=3 @ /forge:~1~1test~1render-vla~1v0/components/schemas/named_row */
+      { JT_KIND_VLA, 0, 3, sizeof(uint8_t), JT_PRIM(JT_KIND_U8) },
+      /* [16] vla vla__u16__n2 max=2 @ /forge:~1~1test~1render-vla~1v0/components/schemas/twin_a */
+      { JT_KIND_VLA, 0, 2, sizeof(uint16_t), JT_PRIM(JT_KIND_U16) },
+      /* [17] vla twin_a max=2 @ /forge:~1~1test~1render-vla~1v0/components/schemas/twin_a */
+      { JT_KIND_VLA, 0, 2, sizeof(uint16_t), JT_PRIM(JT_KIND_U16) },
+      /* [18] vla twin_b max=2 @ /forge:~1~1test~1render-vla~1v0/components/schemas/twin_b */
+      { JT_KIND_VLA, 0, 2, sizeof(uint16_t), JT_PRIM(JT_KIND_U16) },
+      /* [19] fixed uint8_t max=2 @ /forge:~1~1test~1render-vla~1v0/components/schemas/fixed_row */
+      { JT_KIND_FIXED, 0, 2, sizeof(uint8_t), JT_PRIM(JT_KIND_U8) },
+      /* [20] fixed fixed_row max=2 @ /forge:~1~1test~1render-vla~1v0/components/schemas/fixed_row */
+      { JT_KIND_FIXED, 0, 2, sizeof(uint8_t), JT_PRIM(JT_KIND_U8) },
+      /* [21] vla vla__fixed_row__n2 max=2 @ /forge:~1~1test~1render-vla~1v0/components/schemas/fixed_host */
+      { JT_KIND_VLA, 0, 2, 0, JT_ARRAY(20) },
   };
   
   static const struct jt_field jsmn_fields[] = {
@@ -517,11 +736,29 @@
       { 36, offsetof(struct vla_combos, d_ffv), 0xFFFF, JT_ARRAY(12) },
       /* [7] vla_combos.d_fff @ /forge:~1~1test~1render-vla~1v0/components/schemas/vla_combos */
       { 42, offsetof(struct vla_combos, d_fff), 0xFFFF, JT_ARRAY(13) },
+      /* [8] named_host.row @ /forge:~1~1test~1render-vla~1v0/components/schemas/named_host */
+      { 48, offsetof(struct named_host, row), 0xFFFF, JT_ARRAY(15) },
+      /* [9] named_host.maybe_row (optional) @ /forge:~1~1test~1render-vla~1v0/components/schemas/named_host */
+      { 52, offsetof(struct named_host, maybe_row) + offsetof(struct optional__named_row, maybe), offsetof(struct named_host, maybe_row), JT_ARRAY(15) },
+      /* [10] twin_host.pick @ /forge:~1~1test~1render-vla~1v0/components/schemas/twin_host */
+      { 62, offsetof(struct twin_host, pick), 0xFFFF, JT_ARRAY(17) },
+      /* [11] fixed_host.row @ /forge:~1~1test~1render-vla~1v0/components/schemas/fixed_host */
+      { 48, offsetof(struct fixed_host, row), 0xFFFF, JT_ARRAY(20) },
+      /* [12] fixed_host.maybe_row (optional) @ /forge:~1~1test~1render-vla~1v0/components/schemas/fixed_host */
+      { 52, offsetof(struct fixed_host, maybe_row) + offsetof(struct optional__fixed_row, maybe), offsetof(struct fixed_host, maybe_row), JT_ARRAY(20) },
+      /* [13] fixed_host.grid @ /forge:~1~1test~1render-vla~1v0/components/schemas/fixed_host */
+      { 67, offsetof(struct fixed_host, grid), 0xFFFF, JT_ARRAY(21) },
   };
   
   static const struct jt_struct jsmn_structs[] = {
       /* [0] vla_combos @ /forge:~1~1test~1render-vla~1v0/components/schemas/vla_combos */
       { 8, 0, sizeof(struct vla_combos), 697, 0 },
+      /* [1] named_host @ /forge:~1~1test~1render-vla~1v0/components/schemas/named_host */
+      { 2, 0, sizeof(struct named_host), 11, 8 },
+      /* [2] twin_host @ /forge:~1~1test~1render-vla~1v0/components/schemas/twin_host */
+      { 1, 0, sizeof(struct twin_host), 5, 10 },
+      /* [3] fixed_host @ /forge:~1~1test~1render-vla~1v0/components/schemas/fixed_host */
+      { 3, 0, sizeof(struct fixed_host), 17, 11 },
   };
   
   static const struct jt_schemas jsmn_schemas = {
@@ -603,6 +840,216 @@
       const struct vla_combos *src)
   {
   	return jsmn_encode(dst, dlen, src, JSMN_VLA_COMBOS_KEY);
+  }
+  
+  int32_t
+  jsmn_decode_named_host_tok(
+      struct named_host *dst,
+      const char *src,
+      uint32_t slen,
+      jsmntok_t *toks,
+      uint32_t ntoks)
+  {
+      return jsmn_decode(toks, ntoks, dst, JSMN_NAMED_HOST_KEY, src, slen);
+  }
+  
+  int32_t
+  jsmn_decode_named_host(
+      struct named_host *dst,
+      const char *src,
+      uint32_t slen)
+  {
+      jsmntok_t toks[JSMN_NAMED_HOST_NTOKS];
+      return jsmn_decode_named_host_tok(dst, src, slen, toks, JSMN_NAMED_HOST_NTOKS);
+  }
+  
+  int32_t
+  jsmn_encode_named_host(
+      uint8_t *dst,
+      uint32_t dlen,
+      const struct named_host *src)
+  {
+  	return jsmn_encode(dst, dlen, src, JSMN_NAMED_HOST_KEY);
+  }
+  
+  int32_t
+  jsmn_decode_twin_host_tok(
+      struct twin_host *dst,
+      const char *src,
+      uint32_t slen,
+      jsmntok_t *toks,
+      uint32_t ntoks)
+  {
+      return jsmn_decode(toks, ntoks, dst, JSMN_TWIN_HOST_KEY, src, slen);
+  }
+  
+  int32_t
+  jsmn_decode_twin_host(
+      struct twin_host *dst,
+      const char *src,
+      uint32_t slen)
+  {
+      jsmntok_t toks[JSMN_TWIN_HOST_NTOKS];
+      return jsmn_decode_twin_host_tok(dst, src, slen, toks, JSMN_TWIN_HOST_NTOKS);
+  }
+  
+  int32_t
+  jsmn_encode_twin_host(
+      uint8_t *dst,
+      uint32_t dlen,
+      const struct twin_host *src)
+  {
+  	return jsmn_encode(dst, dlen, src, JSMN_TWIN_HOST_KEY);
+  }
+  
+  int32_t
+  jsmn_decode_fixed_host_tok(
+      struct fixed_host *dst,
+      const char *src,
+      uint32_t slen,
+      jsmntok_t *toks,
+      uint32_t ntoks)
+  {
+      return jsmn_decode(toks, ntoks, dst, JSMN_FIXED_HOST_KEY, src, slen);
+  }
+  
+  int32_t
+  jsmn_decode_fixed_host(
+      struct fixed_host *dst,
+      const char *src,
+      uint32_t slen)
+  {
+      jsmntok_t toks[JSMN_FIXED_HOST_NTOKS];
+      return jsmn_decode_fixed_host_tok(dst, src, slen, toks, JSMN_FIXED_HOST_NTOKS);
+  }
+  
+  int32_t
+  jsmn_encode_fixed_host(
+      uint8_t *dst,
+      uint32_t dlen,
+      const struct fixed_host *src)
+  {
+  	return jsmn_encode(dst, dlen, src, JSMN_FIXED_HOST_KEY);
+  }
+  
+  int32_t
+  jsmn_decode_named_row_tok(
+      struct named_row *dst,
+      const char *src,
+      uint32_t slen,
+      jsmntok_t *toks,
+      uint32_t ntoks)
+  {
+      return jsmn_decode(toks, ntoks, dst, JSMN_NAMED_ROW_KEY, src, slen);
+  }
+  
+  int32_t
+  jsmn_decode_named_row(
+      struct named_row *dst,
+      const char *src,
+      uint32_t slen)
+  {
+      jsmntok_t toks[JSMN_NAMED_ROW_NTOKS];
+      return jsmn_decode_named_row_tok(dst, src, slen, toks, JSMN_NAMED_ROW_NTOKS);
+  }
+  
+  int32_t
+  jsmn_encode_named_row(
+      uint8_t *dst,
+      uint32_t dlen,
+      const struct named_row *src)
+  {
+  	return jsmn_encode(dst, dlen, src, JSMN_NAMED_ROW_KEY);
+  }
+  
+  int32_t
+  jsmn_decode_twin_a_tok(
+      struct twin_a *dst,
+      const char *src,
+      uint32_t slen,
+      jsmntok_t *toks,
+      uint32_t ntoks)
+  {
+      return jsmn_decode(toks, ntoks, dst, JSMN_TWIN_A_KEY, src, slen);
+  }
+  
+  int32_t
+  jsmn_decode_twin_a(
+      struct twin_a *dst,
+      const char *src,
+      uint32_t slen)
+  {
+      jsmntok_t toks[JSMN_TWIN_A_NTOKS];
+      return jsmn_decode_twin_a_tok(dst, src, slen, toks, JSMN_TWIN_A_NTOKS);
+  }
+  
+  int32_t
+  jsmn_encode_twin_a(
+      uint8_t *dst,
+      uint32_t dlen,
+      const struct twin_a *src)
+  {
+  	return jsmn_encode(dst, dlen, src, JSMN_TWIN_A_KEY);
+  }
+  
+  int32_t
+  jsmn_decode_twin_b_tok(
+      struct twin_b *dst,
+      const char *src,
+      uint32_t slen,
+      jsmntok_t *toks,
+      uint32_t ntoks)
+  {
+      return jsmn_decode(toks, ntoks, dst, JSMN_TWIN_B_KEY, src, slen);
+  }
+  
+  int32_t
+  jsmn_decode_twin_b(
+      struct twin_b *dst,
+      const char *src,
+      uint32_t slen)
+  {
+      jsmntok_t toks[JSMN_TWIN_B_NTOKS];
+      return jsmn_decode_twin_b_tok(dst, src, slen, toks, JSMN_TWIN_B_NTOKS);
+  }
+  
+  int32_t
+  jsmn_encode_twin_b(
+      uint8_t *dst,
+      uint32_t dlen,
+      const struct twin_b *src)
+  {
+  	return jsmn_encode(dst, dlen, src, JSMN_TWIN_B_KEY);
+  }
+  
+  int32_t
+  jsmn_decode_fixed_row_tok(
+      fixed_row *dst,
+      const char *src,
+      uint32_t slen,
+      jsmntok_t *toks,
+      uint32_t ntoks)
+  {
+      return jsmn_decode(toks, ntoks, dst, JSMN_FIXED_ROW_KEY, src, slen);
+  }
+  
+  int32_t
+  jsmn_decode_fixed_row(
+      fixed_row *dst,
+      const char *src,
+      uint32_t slen)
+  {
+      jsmntok_t toks[JSMN_FIXED_ROW_NTOKS];
+      return jsmn_decode_fixed_row_tok(dst, src, slen, toks, JSMN_FIXED_ROW_NTOKS);
+  }
+  
+  int32_t
+  jsmn_encode_fixed_row(
+      uint8_t *dst,
+      uint32_t dlen,
+      const fixed_row *src)
+  {
+  	return jsmn_encode(dst, dlen, src, JSMN_FIXED_ROW_KEY);
   }
   
   

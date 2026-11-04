@@ -120,3 +120,60 @@ components:
               minItems: 3
               maxItems: 3
               items: { type: integer, format: uint32 }
+
+    # A property that references a named array is that type, required and
+    # optional alike. No mangled twin of its shape is emitted.
+    named_row:
+      type: array
+      x-jsmn-type: named_row
+      maxItems: 3
+      items: { type: integer, format: uint8 }
+    named_host:
+      type: object
+      x-jsmn-type: named_host
+      required: [row]
+      properties:
+        row:
+          $ref: '#/components/schemas/named_row'
+        maybe_row:
+          $ref: '#/components/schemas/named_row'
+    # Two names with one shape stay two types; the property gets the one it
+    # referenced.
+    twin_a:
+      type: array
+      x-jsmn-type: twin_a
+      maxItems: 2
+      items: { type: integer, format: uint16 }
+    twin_b:
+      type: array
+      x-jsmn-type: twin_b
+      maxItems: 2
+      items: { type: integer, format: uint16 }
+    twin_host:
+      type: object
+      x-jsmn-type: twin_host
+      required: [pick]
+      properties:
+        pick:
+          $ref: '#/components/schemas/twin_a'
+    # A named fixed array as a property and as the items of another array.
+    fixed_row:
+      type: array
+      x-jsmn-type: fixed_row
+      minItems: 2
+      maxItems: 2
+      items: { type: integer, format: uint8 }
+    fixed_host:
+      type: object
+      x-jsmn-type: fixed_host
+      required: [row, grid]
+      properties:
+        row:
+          $ref: '#/components/schemas/fixed_row'
+        maybe_row:
+          $ref: '#/components/schemas/fixed_row'
+        grid:
+          type: array
+          maxItems: 2
+          items:
+            $ref: '#/components/schemas/fixed_row'

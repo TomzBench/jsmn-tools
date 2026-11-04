@@ -238,6 +238,8 @@ def build_tables(
                 )
                 fields.append(desc)
         elif isinstance(d, CArray):
+            sum_ntoks(d)  # memoize under the user's name for fields of it
+            sum_encode_len(d)
             spec = CType(d.elem.name, (Dim(d.min, d.max), *d.elem.dims))
             resolve_array(spec, d.loc, name=d.ctype.name)
     table = {d.key: d for d in [*structs, *fields, *arrays]}
