@@ -279,9 +279,9 @@ class CodegenBundle(TypedDict):
 def bundle_codegen(reg: Registry) -> tuple[Resolver, CodegenBundle]:
     resolver = reg.resolver()
     flattened = flatten_registry(reg)
-    specifications = [
+    specifications = [  # URI order, as flatten_registry; see TODO(order) there
         r.contents
-        for r in reg.values()
+        for r in (reg[uri] for uri in sorted(reg))
         if "openapi" in r.contents or "asyncapi" in r.contents
     ]
     sorted_user = sort_declarations(flattened.decls)

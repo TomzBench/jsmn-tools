@@ -273,8 +273,18 @@ def flatten_registry(reg: Registry) -> FlattenResult:
     point shared by the C codegen bundle and the model backends in
     jsmn_tools.lang.
     """
-    openapi = [r.contents for r in reg.values() if "openapi" in r.contents]
-    asyncapi = [r.contents for r in reg.values() if "asyncapi" in r.contents]
+    # A Registry has no order: it is an rpds HashTrieMap, hashed with a
+    # per-process seed, so reg.values() shuffles the documents every run and
+    # with them every declaration and table index. Sorting by URI keeps the
+    # output stable.
+    # TODO(order): take Sequence[Resource] here and in bundle_codegen, build
+    # the Registry inside for resolution only, and walk the sequence. Then the
+    # type forbids passing an unordered registry and the plugin's own order
+    # is what comes out. Mechanical: cli._collect_registry, loader.render,
+    # plugin.zephyr.join_zephyr_registry and the tests build the registry.
+    resources = [reg[uri] for uri in sorted(reg)]
+    openapi = [r.contents for r in resources if "openapi" in r.contents]
+    asyncapi = [r.contents for r in resources if "asyncapi" in r.contents]
     resolver = reg.resolver()
     result = flatten_with_resolver(
         *openapi, resolver=resolver, draft=OPENAPI_3_1

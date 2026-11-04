@@ -58,6 +58,26 @@ def test_renderer_jsmn_generated_impl(env: Environment, snapshot) -> None:
     assert env.from_string(tpl).render() == snapshot
 
 
+def test_renderer_multi_document(snapshot) -> None:
+    """Two documents in one registry render the same way run after run."""
+    resources = [
+        Resource.from_contents(
+            yaml.load(FIXTURES / f"{name}.openapi.yaml"),
+            default_specification=DRAFT202012,
+        )
+        for name in ("jsmn-vla", "jsmn")
+    ]
+    resolver, bundle = bundle_codegen(resources @ Registry())
+    env = Environment(
+        keep_trailing_newline=True,
+        trim_blocks=True,
+        lstrip_blocks=True,
+    )
+    extend_codegen(env, bundle, resolver=resolver, prefix="jsmn_")
+    tpl = "{% include 'jsmn_generated.h' %}"
+    assert env.from_string(tpl).render() == snapshot
+
+
 def test_renderer_runtime_snapshot(empty_env: Environment, snapshot) -> None:
     """Runtime files are loadable via prefix loader with includes stripped."""
     tpl = dedent("""\
