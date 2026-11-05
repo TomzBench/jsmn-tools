@@ -1,17 +1,23 @@
 """CLI entry point for jsmn tools cli
 
+Every command builds one Recorder and one Loader over it from --env, and
+reads everything through the loader: CLI specs, the plugin module,
+templates, and whatever the plugin hooks read in turn (the hooks receive
+the same loader). --depfile writes the recorder's inputs as a Make-style
+depfile so a build system re-runs the command when any of them changes.
+
 jsmn bundle [specs...] [--plugin PATH] [--env K=V...] --out-dir DIR
     - CLI specs: split by draft, join each, produce BundleResult
-    - Plugin: plugin.bundle(env) -> BundleResult
+    - Plugin: plugin.bundle(loader) -> BundleResult
     - Both: join per-draft across CLI and plugin results
     - Write up to 3 files to out-dir: openapi.yaml, asyncapi.yaml
 
 jsmn render [specs...] [--plugin PATH] [--env K=V...] [--global K=V...]
-            [--template SRC OUT...] [--prefix PREFIX]
-    - CLI specs: load_resource(path) auto-assigns file:// $id -> Registry
-    - Plugin: plugin.collect(env) -> Registry
+            [--template SRC OUT...] [--prefix PREFIX] [--depfile FILE]
+    - CLI specs: loader.load_resource(path) auto-assigns file:// $id -> Registry
+    - Plugin: plugin.collect(loader) -> Registry
     - Both: CLI resources @ plugin registry (combined)
-    - Plugin jinja: plugin.jinja(env) -> Environment (optional)
+    - Plugin jinja: plugin.jinja(loader) -> Environment (optional)
     - bundle_codegen(registry) -> flatten + codegen pipeline -> render templates
 """
 
@@ -34,19 +40,16 @@ from jsmn_tools.jsmn.prepare import (
 from jsmn_tools.lang import python, typescript
 from jsmn_tools.plugin.loader import (
     BundleResult,
+    Loader,
     Plugin,
+    Recorder,
     load_bundle,
-    load_plugin,
-    load_plugins,
-    load_resource,
 )
 from jsmn_tools.spec import ASYNCAPI_3_0, OPENAPI_3_1
 from jsmn_tools.walk import join
 
 JSMN_RUNTIME_DIR = files("jsmn_tools").joinpath("jsmn", "runtime")
 RUNTIME_FILES = ("runtime.c", "runtime.h", "jsmn.h")
-
-yaml = YAML(typ="safe")
 
 
 def _die(fmt: str, *args: object) -> None:
@@ -66,12 +69,12 @@ def _cmake_dir() -> str:
     raise FileNotFoundError("Cannot locate jsmn tools cmake modules")
 
 
-def _resolve_plugin(path: str) -> Plugin:
+def _resolve_plugin(path: str, loader: Loader) -> Plugin:
     p = Path(path)
     if p.is_file():
-        return load_plugin(p)
+        return loader.load_plugin(p)
     if p.is_dir():
-        plugins = load_plugins([p])
+        plugins = loader.load_plugins([p])
         if not plugins:
             _die("no .jsmn-tools.py found in %s", path)
         return next(iter(plugins.values()))
@@ -99,7 +102,7 @@ def _merge_bundles(a: BundleResult, b: BundleResult) -> BundleResult:
 
 def _collect_registry(
     *specs: str,
-    env: dict[str, str],
+    loader: Loader,
     plugin: Plugin | None = None,
     prefix: str | None = None,
 ) -> Registry:
@@ -107,26 +110,29 @@ def _collect_registry(
 
     resources: list[Resource] = []
     if specs:
-        resources += [load_resource(Path(s), prefix=prefix) for s in specs]
+        resources += [
+            loader.load_resource(Path(s), prefix=prefix) for s in specs
+        ]
     if plugin:
-        resources += plugin.collect(env)
+        resources += plugin.collect(loader)
     registry = resources @ Registry()
     return registry
 
 
-def _build_jinja_environment(args: argparse.Namespace) -> Environment:
-    env = _parse_kv(args.env)
+def _build_jinja_environment(
+    args: argparse.Namespace, loader: Loader
+) -> Environment:
     prefix = getattr(args, "prefix", None)
-    plugin = _resolve_plugin(args.plugin) if args.plugin else None
+    plugin = _resolve_plugin(args.plugin, loader) if args.plugin else None
     registry = _collect_registry(
         *args.specs,
         prefix=prefix,
-        env=env,
+        loader=loader,
         plugin=plugin,
     )
 
     jinja_hook = getattr(plugin, "jinja", None) if plugin else None
-    jinja_env = jinja_hook(env) if jinja_hook else None
+    jinja_env = jinja_hook(loader) if jinja_hook else None
 
     env_obj = jinja_env or Environment(
         keep_trailing_newline=True,
@@ -158,7 +164,7 @@ def _cmd_cmake_dir(_args: argparse.Namespace) -> None:
 
 
 def _cmd_bundle(args: argparse.Namespace) -> None:
-    env = _parse_kv(args.env)
+    loader = Loader(_parse_kv(args.env))
     out = Path(args.out_dir)
     out.mkdir(parents=True, exist_ok=True)
 
@@ -166,12 +172,12 @@ def _cmd_bundle(args: argparse.Namespace) -> None:
     plugin_bundle = None
 
     if args.specs:
-        specs = [yaml.load(Path(s)) for s in args.specs]
+        specs = [loader.read_yaml(Path(s)) for s in args.specs]
         cli_bundle = load_bundle(*specs)
 
     if args.plugin:
-        plugin = _resolve_plugin(args.plugin)
-        plugin_bundle = plugin.bundle(env)
+        plugin = _resolve_plugin(args.plugin, loader)
+        plugin_bundle = plugin.bundle(loader)
 
     if not cli_bundle and not plugin_bundle:
         _die("no specs provided (pass spec files or --plugin)")
@@ -187,7 +193,7 @@ def _cmd_bundle(args: argparse.Namespace) -> None:
     # TODO: $id leak in bundle output.
     # join() preserves the first spec's top-level $id in the merged document.
     # For CLI-loaded specs, that $id is `file:///abs/path/spec_a.yaml` (set by
-    # load_resource via path.resolve().as_uri()). Written verbatim to disk
+    # Loader.load_resource via path.resolve().as_uri()). Written verbatim to
     # here, the bundled output carries a machine-specific absolute path —
     # not portable.
     #
@@ -208,28 +214,37 @@ def _cmd_bundle(args: argparse.Namespace) -> None:
 
 
 def _cmd_render(args: argparse.Namespace) -> None:
-    env_obj = _build_jinja_environment(args)
+    recorder = Recorder()
+    loader = Loader(_parse_kv(args.env), recorder)
+    env_obj = _build_jinja_environment(args, loader)
 
     for src, dst in args.templates:
-        tpl = Path(src).read_text(encoding="utf-8")
+        tpl = loader.read_text(src)
         Path(dst).parent.mkdir(parents=True, exist_ok=True)
         Path(dst).write_text(
             env_obj.from_string(tpl).render(),
             encoding="utf-8",
         )
+    if args.depfile:
+        recorder.write_depfile(args.depfile, [dst for _, dst in args.templates])
 
 
 def _cmd_generate(args: argparse.Namespace) -> None:
-    env_obj = _build_jinja_environment(args)
+    recorder = Recorder()
+    loader = Loader(_parse_kv(args.env), recorder)
+    env_obj = _build_jinja_environment(args, loader)
     env_obj.globals.update({"preset_header": f"{args.name}.h"})
     jsmn = env_obj.get_template("jsmn.h")
     preset_h = env_obj.get_template("preset.h")
     preset_c = env_obj.get_template("preset.c")
     out = Path(args.out_dir)
     out.mkdir(parents=True, exist_ok=True)
-    (out / "jsmn.h").write_text(jsmn.render(), encoding="utf-8")
-    (out / f"{args.name}.h").write_text(preset_h.render(), encoding="utf-8")
-    (out / f"{args.name}.c").write_text(preset_c.render(), encoding="utf-8")
+    outputs = [out / "jsmn.h", out / f"{args.name}.h", out / f"{args.name}.c"]
+    outputs[0].write_text(jsmn.render(), encoding="utf-8")
+    outputs[1].write_text(preset_h.render(), encoding="utf-8")
+    outputs[2].write_text(preset_c.render(), encoding="utf-8")
+    if args.depfile:
+        recorder.write_depfile(args.depfile, outputs)
 
 
 _RENDERERS = {
@@ -242,13 +257,13 @@ def _cmd_types(args: argparse.Namespace) -> None:
     render = _RENDERERS.get(args.lang)
     if render is None:
         _die("unsupported --lang: %s", args.lang)
-    env = _parse_kv(args.env)
+    loader = Loader(_parse_kv(args.env))
     prefix = getattr(args, "prefix", None)
-    plugin = _resolve_plugin(args.plugin) if args.plugin else None
+    plugin = _resolve_plugin(args.plugin, loader) if args.plugin else None
     registry = _collect_registry(
         *args.specs,
         prefix=prefix,
-        env=env,
+        loader=loader,
         plugin=plugin,
     )
     result = flatten_registry(registry)
@@ -322,6 +337,11 @@ def main() -> None:
         choices=[m.value for m in ShimMode],
         help="default typed-shim emission mode (default: extern)",
     )
+    p.add_argument(
+        "--depfile",
+        metavar="FILE",
+        help="write a Make-style depfile listing every input read",
+    )
     p.set_defaults(func=_cmd_render)
 
     # generate (stub)
@@ -351,7 +371,11 @@ def main() -> None:
         dest="globals",
         help="template variable",
     )
-
+    p.add_argument(
+        "--depfile",
+        metavar="FILE",
+        help="write a Make-style depfile listing every input read",
+    )
     p.set_defaults(func=_cmd_generate)
 
     # types

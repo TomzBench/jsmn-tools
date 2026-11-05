@@ -6,8 +6,8 @@ NOTE (draft — rewrite for end users later):
 CLI-loaded specs get `$id = path.resolve().as_uri()` (→ `file://...`). This is
 intentional and composes with the `referencing` library:
 
-- `load_resource` (plugin/loader.py) stamps a `file://` $id only when the spec
-  doesn't declare one.
+- `Loader.load_resource` (plugin/loader.py) stamps a `file://` $id only when
+  the spec doesn't declare one.
 - `file://` is in `_PASSTHROUGH_SCHEMES` (node/uri.py) — the normalizer leaves
   it alone.
 - `normalize` only runs on the bundle/join path (walk/join.py:50). It does
@@ -59,7 +59,7 @@ $ jsmn bundle [SPECS...] --out-dir DIR [--plugin PATH] [--env K=V]...
 |----------|-------------|
 | `SPECS` | Zero or more YAML spec files. |
 | `--out-dir` | **Required.** Directory that receives `openapi.yaml` / `asyncapi.yaml`. |
-| `--plugin PATH` | Plugin module or directory; its `bundle(env)` hook contributes additional specs. |
+| `--plugin PATH` | Plugin module or directory; its `bundle(loader)` hook contributes additional specs. |
 | `--env K=V` | Config entry passed to the plugin. Repeatable. |
 
 #### jsmn render
@@ -76,6 +76,7 @@ $ jsmn render [SPECS...]
               [--prefix PREFIX]
               [--shim-mode {extern,inline,none}]
               [--env K=V]... [--global K=V]...
+              [--depfile FILE]
 ```
 
 | Argument | Description |
@@ -85,8 +86,9 @@ $ jsmn render [SPECS...]
 | `--plugin PATH` | Plugin module or directory. See [Plugin](#plugin). |
 | `--prefix PREFIX` | Function / type-name prefix applied across all `x-jsmn-type` schemas. Default `jsmn_`. Overridden by per-schema `x-jsmn-prefix`. |
 | `--shim-mode` | Default typed-shim emission: `extern` (bodies in `.c`), `inline` (`static inline` in `.h`), or `none` (no shims — callers invoke `jt_encode` / `jt_decode` directly with a `JSMN_<T>_KEY`). Default `extern`. Overridden by per-schema `x-jsmn-shim`. |
-| `--env K=V` | Config entry passed to the plugin. Repeatable. |
+| `--env K=V` | Config entry passed to the plugin as `loader.config`. Repeatable. |
 | `--global K=V` | Jinja template global. Repeatable. |
+| `--depfile FILE` | Write a Make-style depfile (`outputs: inputs`) listing every file the run read: specs, plugin modules, templates and anything the plugin read through its loader. For `add_custom_command(DEPFILE)`. |
 
 #### jsmn generate
 
@@ -101,6 +103,7 @@ $ jsmn generate [SPECS...]
                 [--prefix PREFIX]
                 [--shim-mode {extern,inline,none}]
                 [--env K=V]... [--global K=V]...
+                [--depfile FILE]
 ```
 
 | Argument | Description |

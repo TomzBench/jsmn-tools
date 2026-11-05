@@ -48,24 +48,29 @@ jsmn render --plugin . --env project_name=sensor-kit --template catalog.md.jinja
 
 Three hook functions, each called once per render:
 
-**`collect(env)`** is called before any spec loading. It returns a list
-of `Resource` objects — same type the CLI produces from positional
+Each hook receives the run's `Loader`. `loader.config` is the dict
+assembled from `--env KEY=VALUE` CLI flags, so the plugin can be
+parameterized at invocation time, and files read through the loader
+(`loader.load_resource`, `loader.read_yaml`, `loader.read_text`) are
+recorded for the `--depfile` the CMake wrappers ask for.
+
+**`collect(loader)`** is called before any spec loading. It returns a
+list of `Resource` objects — same type the CLI produces from positional
 `*.yaml` arguments. Here it globs `specs/*.yaml`, but nothing stops a
 plugin from fetching specs over HTTP, filtering by tag, or generating
-them inline. `env` is the dict assembled from `--env KEY=VALUE` CLI
-flags, so the plugin can be parameterized at invocation time.
+them inline.
 
-**`bundle(env)`** is the entry point for `jsmn bundle`. For a plugin
+**`bundle(loader)`** is the entry point for `jsmn bundle`. For a plugin
 that already implements `collect`, a one-line wrapper around
 `load_bundle()` is usually enough.
 
-**`jinja(env)`** is optional. It returns a pre-populated `Environment`
+**`jinja(loader)`** is optional. It returns a pre-populated `Environment`
 that jsmn-tools then overlays with its own loaders, filters, tests,
 and globals via `extend_codegen`. Filters and globals you register
 here survive that overlay. This plugin registers one of each:
 
 - `banner` (filter) — decorates a string as an HTML comment banner.
-- `project_name` (global) — sourced from the `--env` dict, with a
+- `project_name` (global) — sourced from `loader.config`, with a
   fallback default.
 
 ## Extending further

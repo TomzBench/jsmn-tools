@@ -1,3 +1,3 @@
-from .loader import load_plugin, load_plugins
+from .loader import BundleResult, Loader, Plugin, Recorder, load_bundle
 
-__all__ = ["load_plugin", "load_plugins"]
+__all__ = ["BundleResult", "Loader", "Plugin", "Recorder", "load_bundle"]

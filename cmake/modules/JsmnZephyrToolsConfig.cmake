@@ -4,9 +4,12 @@
 # and jsmn_zephyr_library_templates() with Zephyr defaults baked in.
 # Does NOT auto-bundle — use find_package(JsmnZephyrApplication) for that.
 #
-# Cache specs are auto-discovered via file(GLOB) from JSMN_ZEPHYR_CACHE_DIR.
-# Callers can pass additional SPECS which accumulate with the glob results.
-# If the cache dir doesn't exist yet (no bundle ran), the glob is empty — safe.
+# The specs come from the plugins: the application's .jsmn-tools.py fans out
+# over the west workspace (ZephyrWorkspace) and every module's collect()
+# selects its schemas on the build's Kconfig. CMake never sees that list;
+# the depfile the render writes does, so a schema, plugin or Kconfig change
+# re-runs the render on the next build. Callers may still pass SPECS for
+# files outside the plugin chain.
 #
 # Example (library):
 #
@@ -27,19 +30,14 @@ execute_process(
   OUTPUT_STRIP_TRAILING_WHITESPACE)
 find_package(JsmnTools REQUIRED HINTS ${JSMN_TOOLS_MODULES_DIR})
 
-# Top-level build dir so the path is stable across app and library targets.
-set(JSMN_ZEPHYR_CACHE_DIR ${CMAKE_BINARY_DIR}/jsmn-cache CACHE PATH "")
-
 # Render templates for a named target with Zephyr defaults.
 # First positional arg is the target name; remaining args forwarded to jsmn_render.
 # Caller's single-value args (PLUGIN, PREFIX) override defaults, while
 # multi-value args (ENV, SPECS) accumulate.
 function(jsmn_zephyr_templates target)
-    file(GLOB _cache_specs ${JSMN_ZEPHYR_CACHE_DIR}/*.yaml)
     jsmn_render(${target}
         PLUGIN  ${CMAKE_SOURCE_DIR}
         ENV     build_dir=${CMAKE_BINARY_DIR}
-        SPECS   ${_cache_specs}
         ${ARGN}
     )
 endfunction()
