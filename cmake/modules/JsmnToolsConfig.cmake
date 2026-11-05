@@ -34,6 +34,14 @@
 # Produces three files in OUTDIR: jsmn.h, <NAME>.h, <NAME>.c. Consumers add
 # the generated .c to their own target and declare a dependency on the
 # codegen target — jsmn_generate does not wrap the output in a library.
+#
+# Both jsmn_render and jsmn_generate ask the tool for a depfile (--depfile)
+# and hand it to add_custom_command(DEPFILE). The tool lists every file the
+# run read: the SPECS, the plugin module and every spec it collected, the
+# templates, and under Zephyr the west manifest and the build's autoconf.h.
+# So an edit to any of them re-runs the render on the next build without a
+# pristine configure. DEPFILE with Ninja and Makefile generators needs
+# CMake 3.20 (policy CMP0116), which is also Zephyr's minimum.
 
 set(JsmnTools_FOUND TRUE)
 set(JsmnTools_VERSION "0.1.0")
@@ -89,10 +97,14 @@ function(jsmn_render target)
     _append_if(ARG_PREFIX _args --prefix "${ARG_PREFIX}")
     _append_if(ARG_PLUGIN _args --plugin "${ARG_PLUGIN}")
 
+    set(_depfile "${CMAKE_CURRENT_BINARY_DIR}/${target}.d")
+    list(APPEND _args --depfile "${_depfile}")
+
     add_custom_command(
         OUTPUT ${_outputs}
         COMMAND ${JsmnTools_EXECUTABLE} render ${_args}
         DEPENDS ${ARG_SPECS} ${_depends}
+        DEPFILE ${_depfile}
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         COMMENT "jsmn-tools: generating outputs"
     )
@@ -130,6 +142,9 @@ function(jsmn_generate target)
 
     list(APPEND _args --name "${ARG_NAME}" --out-dir "${ARG_OUTDIR}")
 
+    set(_depfile "${CMAKE_CURRENT_BINARY_DIR}/${target}.d")
+    list(APPEND _args --depfile "${_depfile}")
+
     set(_outputs
         "${ARG_OUTDIR}/jsmn.h"
         "${ARG_OUTDIR}/${ARG_NAME}.h"
@@ -140,6 +155,7 @@ function(jsmn_generate target)
         OUTPUT ${_outputs}
         COMMAND ${JsmnTools_EXECUTABLE} generate ${_args}
         DEPENDS ${ARG_SPECS}
+        DEPFILE ${_depfile}
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         COMMENT "jsmn-tools: generating ${ARG_NAME}"
     )

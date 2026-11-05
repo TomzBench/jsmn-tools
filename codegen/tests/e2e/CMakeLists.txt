@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.20)
 project(jsmn-tools-e2e LANGUAGES C)
 
 # Load jsmn-tools cmake modules
