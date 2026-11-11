@@ -87,14 +87,13 @@ def _follow_ref(
     loc: Location,
     curr_resolver: Resolver,
 ) -> tuple[Location, Any, Resolver]:
-    ref = schema["$ref"]
-    base, fragment = urldefrag(ref)
-    if not base:
-        base = loc[0]
-        ref = f"{base}#{fragment}" if fragment else base
+    # curr_resolver is scoped to the document that holds this $ref, so a
+    # fragment-only ref resolves against it; the returned resolver is scoped
+    # to the target's document in turn.
+    base, fragment = urldefrag(schema["$ref"])
     location_fragment = Location.from_pointer(fragment)
-    target_location = Location.from_segments(base, *location_fragment)
-    resolved = curr_resolver.lookup(ref)
+    target_location = Location.from_segments(base or loc[0], *location_fragment)
+    resolved = curr_resolver.lookup(schema["$ref"])
     return (target_location, resolved.contents, resolved.resolver)
 
 
@@ -259,7 +258,10 @@ def flatten_with_resolver[K: str](
             elif "x-jsmn-type" in s.value:
                 ty = s.value.get("type")
                 if ty in ("object", "array", "string") or "allOf" in s.value:
-                    acc |= _walk_any(s.value, s.location, resolver)
+                    # s.location[0] is the document's $id: scope the resolver
+                    # to it so fragment-only $refs have a base
+                    scoped = resolver.lookup(s.location[0]).resolver
+                    acc |= _walk_any(s.value, s.location, scoped)
         return acc
 
     return reduce(step, walk(*specs, draft=draft), FlattenResult.empty())
@@ -280,8 +282,8 @@ def flatten_registry(reg: Registry) -> FlattenResult:
     # TODO(order): take Sequence[Resource] here and in bundle_codegen, build
     # the Registry inside for resolution only, and walk the sequence. Then the
     # type forbids passing an unordered registry and the plugin's own order
-    # is what comes out. Mechanical: cli._collect_registry, loader.render,
-    # plugin.zephyr.join_zephyr_registry and the tests build the registry.
+    # is what comes out. Mechanical: cli._collect_registry, loader.render
+    # and the tests build the registry.
     resources = [reg[uri] for uri in sorted(reg)]
     openapi = [r.contents for r in resources if "openapi" in r.contents]
     asyncapi = [r.contents for r in resources if "asyncapi" in r.contents]

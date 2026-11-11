@@ -360,8 +360,11 @@ def filters(
 
     # ── JSON pointer filter (resolve $ref via resolver) ───────────────
 
-    def json_pointer(ref: str) -> Any:
-        return resolver.lookup(ref).contents
+    def json_pointer(ref: str, base: str | None = None) -> Any:
+        """Resolve *ref*. A fragment-only ref needs *base*: its document's
+        ``$id``."""
+        scoped = resolver.lookup(base).resolver if base else resolver
+        return scoped.lookup(ref).contents
 
     result: dict[str, Callable[..., Any]] = {
         "dimensions": dimensions,

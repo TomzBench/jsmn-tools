@@ -13,25 +13,22 @@ module, manifest and ``autoconf.h`` the build read.
 from __future__ import annotations
 
 import re
-from collections import defaultdict
 from pathlib import Path
-from typing import Any
 
 from jinja2 import Environment
-from referencing import Registry, Resource
+from referencing import Resource
 from referencing.jsonschema import DRAFT202012
 
 from jsmn_tools.jsmn import join_jinja
 from jsmn_tools.node import ObjectNode, SchemeURI
 from jsmn_tools.plugin.loader import (
     BundleResult,
-    InvalidResourceError,
     Loader,
     Plugin,
     load_bundle,
 )
-from jsmn_tools.spec import ASYNCAPI_3_0, OPENAPI_3_1, parse_draft, split_draft
-from jsmn_tools.walk import join, prefixer
+from jsmn_tools.spec import parse_draft
+from jsmn_tools.walk import prefixer
 
 type Specs[T] = dict[ObjectNode | None, list[T]]
 
@@ -70,60 +67,6 @@ def parse_workspace(loader: Loader) -> list[Path]:
         loader.recorder.record(manifest.abspath)
     dirs = [topdir / p.path for p in manifest.projects if manifest.is_active(p)]
     return list(dict.fromkeys(p.resolve() for p in dirs))
-
-
-# REVIEW: per-module grouping may be dead code. The flat join
-# (ZephyrWorkspace.bundle) merges all modules into 1-per-draft, and normalize
-# rewrites scheme $refs to relative paths before join. The per-module
-# Registry produced by join_zephyr_registry has broken cross-module ref
-# resolution anyway (relative file paths don't match scheme $ids).
-# Keep until atx-zdk migration confirms the flat path works end-to-end.
-def split_uri(*content: Any) -> dict[SchemeURI, list[Any]]:
-    schemes: dict[SchemeURI, list[Any]] = defaultdict(list)
-    for c in content:
-        uri = SchemeURI.parse(c["$id"])
-        if uri is None:
-            raise InvalidResourceError(f"Invalid scheme URI: {c['$id']}")
-        schemes[uri].append(c)
-    return schemes
-
-
-# REVIEW: see split_uri comment — this function and load_zephyr_registry
-# build a per-module Registry that is likely unnecessary. The flat join
-# via ZephyrWorkspace.bundle produces a working Registry for codegen.
-#
-# TODO: LIMITATION: The registry is built without a retrieve callback
-# or document-scoped resolvers, so fragment-only $refs (e.g.,
-# "#/components/schemas/foo") cannot be resolved by the global
-# resolver — it has no base_uri context. Full URIs work fine.
-#
-# Fix: use Registry(retrieve=...) with a zephyr:// aware callback,
-# and create resolvers via registry.resolver(base_uri=...) so
-# fragment-only refs resolve against the current document's $id.
-#
-# Call sites to validate when fixed:
-#   - jsmn/flatten.py   _follow_ref()
-#     (workaround: reconstructs full URI from loc[0])
-#   - jsmn/filters.py   json_pointer()
-#     (exposed to templates, currently only receives full URIs)
-def join_zephyr_registry(specs: dict[SchemeURI, list[Any]]) -> Registry:
-    res = []
-    for uri, items in specs.items():
-        openapi, asyncapi, other = split_draft(*items)
-        joined = join(*openapi, draft=OPENAPI_3_1)
-        joined_a = join(*asyncapi, draft=ASYNCAPI_3_0)
-        for conflict in [*joined.conflicts, *joined_a.conflicts]:
-            print(f"warning: [{conflict.id}] @ {conflict.location}")
-        if joined.value:
-            id = SchemeURI(uri.scheme, uri.module, "openapi", uri.version)
-            joined.value["$id"] = str(id)
-            res.append(joined.value)
-        if joined_a.value:
-            id_a = SchemeURI(uri.scheme, uri.module, "asyncapi", uri.version)
-            joined_a.value["$id"] = str(id_a)
-            res.append(joined_a.value)
-        res.extend([o for o in other if "$id" in o])
-    return res @ Registry()
 
 
 def load_zephyr_resource(
