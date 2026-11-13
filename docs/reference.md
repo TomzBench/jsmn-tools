@@ -79,14 +79,15 @@ kept first, and lists what differs. A spec without a `$id` is named by its
 
 ```
 warning: conflict: zephyr://app/poe/v0#/components/schemas/port vs zephyr://app/switch/v0#/components/schemas/port
-  /required/0: "enabled" != "speed"
+  /required/enabled: only in zephyr://app/poe/v0
+  /required/speed: only in zephyr://app/switch/v0
   /properties/enabled: only in zephyr://app/poe/v0
   /properties/speed: only in zephyr://app/switch/v0
 ```
 
-Lists are compared position by position, so a difference inside a set
-such as `required` reads as the positions that differ, not as the members
-added or removed.
+Sets and lists of named items (`required`, `parameters`) are compared by
+member, so a difference names the member (`/parameters/query,limit`)
+rather than a position.
 
 `info` and root-level `x-*` extensions describe one input, not the joined
 API: the first spec's are used and a disagreement is not reported. `$id`

@@ -23,7 +23,6 @@ jsmn render [specs...] [--plugin PATH] [--env K=V...] [--global K=V...]
 """
 
 import argparse
-import json
 import sys
 from importlib.resources import files
 from pathlib import Path
@@ -41,26 +40,18 @@ from jsmn_tools.jsmn.prepare import (
     sort_declarations,
 )
 from jsmn_tools.lang import python, typescript
-from jsmn_tools.node import Behavior, Location
+from jsmn_tools.node import Behavior
 from jsmn_tools.plugin.loader import Loader, Plugin, Recorder
+from jsmn_tools.reporter import report_conflicts, report_dangling
 from jsmn_tools.spec import (
     ASYNCAPI_3_0,
     ASYNCAPI_3_0_RULES,
     OPENAPI_3_1,
     OPENAPI_3_1_RULES,
     ConflictRules,
-    Verdict,
     split_draft,
 )
-from jsmn_tools.walk import (
-    Extra,
-    JoinConflict,
-    Missing,
-    dangling,
-    diff,
-    join,
-    normalize,
-)
+from jsmn_tools.walk import join, normalize
 
 JSMN_RUNTIME_DIR = files("jsmn_tools").joinpath("jsmn", "runtime")
 RUNTIME_FILES = ("runtime.c", "runtime.h", "jsmn.h")
@@ -112,63 +103,6 @@ def _collect_resources(
     return resources
 
 
-def _explain(
-    conflict: JoinConflict, specs: dict[str, Any], limit: int | None
-) -> list[str]:
-    """One line naming both sides, then one line per difference.
-
-    *specs* are the join's inputs by ``$id``. ``limit`` caps the difference
-    lines; None prints every one.
-    """
-    (kept, *path) = conflict.destination
-    (rejected, *_) = conflict.source
-    where = Location(path)
-    pointer = where.to_pointer()
-    details: list[str] = []
-    (a, b) = (where.resolve(specs[kept]), where.resolve(specs[rejected]))
-    differences = diff(a, b)
-    for loc, d in differences.items():
-        at = f"{loc.to_pointer()}: " if loc else ""
-        if isinstance(d, Missing):
-            details.append(f"  {at}only in {kept}")
-        elif isinstance(d, Extra):
-            details.append(f"  {at}only in {rejected}")
-        else:
-            (x, y) = (json.dumps(d.self), json.dumps(d.other))
-            details.append(f"  {at}{x} != {y}")
-    shown = details if limit is None else details[:limit]
-    lines = [f"{kept}#{pointer} vs {rejected}#{pointer}", *shown]
-    if len(shown) < len(details):
-        lines.append(f"  ... {len(details) - len(shown)} more")
-    return lines
-
-
-def _report(
-    conflicts: list[JoinConflict],
-    specs: dict[str, Any],
-    rules: ConflictRules,
-    mode: str,
-    limit: int | None,
-) -> bool:
-    """Print every conflict the rules do not ignore; True if any must fail.
-
-    *mode* ``warn`` reports an error as a warning.
-    """
-    failed = False
-    for c in conflicts:
-        verdict = rules(Location(c.source[1:]))
-        if verdict is Verdict.IGNORE:
-            continue
-        if verdict is Verdict.ERROR and mode == "warn":
-            verdict = Verdict.WARN
-        failed = failed or verdict is Verdict.ERROR
-        (head, *rest) = _explain(c, specs, limit)
-        print(f"{verdict.value}: conflict: {head}", file=sys.stderr)
-        for line in rest:
-            print(line, file=sys.stderr)
-    return failed
-
-
 def _join(
     specs: list[Any],
     draft: Any,
@@ -181,10 +115,10 @@ def _join(
     normalized = [normalize(spec, (draft, Behavior())) for spec in specs]
     result = join(*normalized, draft=draft)
     by_id = {spec["$id"]: spec for spec in normalized}
-    failed = _report(result.conflicts, by_id, rules, mode, lines)
-    for d in dangling(result.value, draft):
-        at = d.location.to_pointer()
-        print(f"warning: dangling $ref: {name}#{at}: {d.ref}", file=sys.stderr)
+    failed = report_conflicts(
+        result.conflicts, by_id, draft, rules, mode, lines
+    )
+    report_dangling(result.value, draft, name)
     return (result.value, failed)
 
 
