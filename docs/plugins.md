@@ -95,8 +95,8 @@ re-run the render.
 recorder's inputs as a Make-style dependency file (`outputs: inputs`), the
 same thing `gcc -MD` emits. The CMake wrappers pass it to
 `add_custom_command(DEPFILE)`, so after the first build a change to any
-spec, plugin module, template, or `autoconf.h` re-runs only the render
-that read it. This needs CMake 3.20, which is Zephyr's minimum.
+spec, plugin module, template, or other file read through the loader
+re-runs only the render that read it. This needs CMake 3.20 or newer.
 
 ### Zephyr integration
 

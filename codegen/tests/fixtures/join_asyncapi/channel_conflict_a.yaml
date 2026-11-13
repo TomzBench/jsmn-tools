@@ -4,8 +4,8 @@ info:
   version: "1.0.0"
 channels:
   status:
-    address: poe.{serial}.status
+    address: temperature.{serial}.status
     messages:
-      ports:
+      celsius:
         payload:
           type: string

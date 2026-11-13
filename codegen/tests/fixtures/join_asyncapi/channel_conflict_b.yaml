@@ -4,8 +4,8 @@ info:
   version: "1.0.0"
 channels:
   status:
-    address: switch.{serial}.status
+    address: humidity.{serial}.status
     messages:
-      link:
+      percent:
         payload:
           type: string

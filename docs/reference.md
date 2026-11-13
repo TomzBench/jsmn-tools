@@ -10,8 +10,8 @@ intentional and composes with the `referencing` library:
   the spec doesn't declare one.
 - `file://` is in `_PASSTHROUGH_SCHEMES` (node/uri.py) — the normalizer leaves
   it alone.
-- `normalize` only runs on the bundle/join path (walk/join.py:50). It does
-  NOT run during render.
+- `normalize` only runs when bundling (cli.py `_join`). It does NOT run
+  during render.
 - During render, `referencing` resolves `$ref`s using each doc's $id as the
   base URI. Relative refs like `./common.yaml#/...` compose against the
   file:// base → another file:// URI → registry lookup succeeds.
@@ -78,12 +78,15 @@ kept first, and lists what differs. A spec without a `$id` is named by its
 `file://` path.
 
 ```
-warning: conflict: zephyr://app/poe/v0#/components/schemas/port vs zephyr://app/switch/v0#/components/schemas/port
-  /required/enabled: only in zephyr://app/poe/v0
-  /required/speed: only in zephyr://app/switch/v0
-  /properties/enabled: only in zephyr://app/poe/v0
-  /properties/speed: only in zephyr://app/switch/v0
+warning: conflict: app://sensors/temperature/v1#/components/schemas/reading vs app://sensors/humidity/v1#/components/schemas/reading
+  /required/celsius: only in app://sensors/temperature/v1
+  /required/percent: only in app://sensors/humidity/v1
+  /properties/celsius: only in app://sensors/temperature/v1
+  /properties/percent: only in app://sensors/humidity/v1
 ```
+
+Here two specs each define a schema named `reading`. The fix is in the
+specs: give the two schemas different names, or make them the same.
 
 Sets and lists of named items (`required`, `parameters`) are compared by
 member, so a difference names the member (`/parameters/query,limit`)
@@ -93,9 +96,11 @@ rather than a position.
 API: the first spec's are used and a disagreement is not reported. `$id`
 names one input too, and is left out of the output.
 
-A `$ref` into another input (`./sibling.yaml#/x`, `scheme://module/name/vN#/x`)
-is rewritten to the local `#/x`. A local ref with no target in the joined
-document is reported as a warning.
+A `$ref` into another input is rewritten to the local `#/x`. That covers
+a relative ref (`./sibling.yaml#/x`) and a ref by `$id` of the form
+`scheme://module/name/vN#/x`, with any scheme other than `http`, `https`
+or `file`. A local ref with no target in the joined document is reported
+as a warning.
 
 #### jsmn render
 
