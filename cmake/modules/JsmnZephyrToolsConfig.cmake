@@ -2,7 +2,6 @@
 #
 # Provides jsmn_zephyr_templates(), jsmn_zephyr_application_templates(),
 # and jsmn_zephyr_library_templates() with Zephyr defaults baked in.
-# Does NOT auto-bundle — use find_package(JsmnZephyrApplication) for that.
 #
 # The specs come from the plugins: the application's .jsmn-tools.py fans out
 # over the west workspace (ZephyrWorkspace) and every module's collect()

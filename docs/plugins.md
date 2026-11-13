@@ -3,9 +3,9 @@
 A Jsmn Tools Plugin is a Python module loaded via `jsmn render --plugin PATH`
 (or `--plugin DIR` where `DIR` contains a `.jsmn-tools.py`). It extends the
 renderer past what command-line arguments can express: programmatic spec
-discovery, custom Jinja filters and globals, and a `jsmn bundle` entry
-point. The CLI calls up to three top-level hooks, each at a specific
-point in the render pipeline, and passes each the run's `Loader`.
+discovery and custom Jinja filters and globals. The CLI calls up to two
+top-level hooks, each at a specific point in the render pipeline, and
+passes each the run's `Loader`.
 
 ### collect(loader)
 
@@ -34,18 +34,10 @@ def collect(loader):
     return [loader.load_resource(p) for p in sorted((HERE / "specs").glob("*.yaml"))]
 ```
 
-### bundle(loader)
-
-Called by `jsmn bundle` to produce a single merged spec on disk. Most
-plugins already implement `collect`, so `bundle` is usually a one-line
-wrapper around `load_bundle()` of the collected resources:
-
-```python
-from jsmn_tools.plugin.loader import load_bundle
-
-def bundle(loader):
-    return load_bundle(*[r.contents for r in collect(loader)])
-```
+`jsmn bundle` joins the same resources: the specs on the command line,
+then whatever `collect` returns. A plugin needs no hook of its own for it.
+The first spec's `info` becomes the joined document's, so the order of
+`collect` decides it.
 
 ### jinja(loader)
 
@@ -147,13 +139,10 @@ from jsmn_tools.plugin.zephyr import ZephyrWorkspace
 def collect(loader):
     return ZephyrWorkspace(loader).resources()
 
-def bundle(loader):
-    return ZephyrWorkspace(loader).bundle()
-
 def jinja(loader):
     return ZephyrWorkspace(loader).jinja()
 ```
 
-`resources()` is every module's `collect()`, `bundle()` joins them per
-draft, and `jinja()` joins every module's `jinja()` environment. An
+`resources()` is every module's `collect()` and `jinja()` joins every
+module's `jinja()` environment. An
 application that ships its own schemas appends them to `resources()`.

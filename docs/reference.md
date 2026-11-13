@@ -47,20 +47,54 @@ See `examples/cmake/CMakeLists.txt` for typical usage.
 
 #### jsmn bundle
 
-Joins the `components/schemas` sections of one or more OpenAPI / AsyncAPI
-specs into a single merged spec on disk. Useful for downstream tooling
-that expects a single file (e.g., Redocly, Stoplight, openapi-generator).
+Joins one or more OpenAPI / AsyncAPI specs into a single spec per draft
+on disk. Useful for downstream tooling that expects a single file (e.g.,
+Redocly, Stoplight, openapi-generator).
 
 ```console
 $ jsmn bundle [SPECS...] --out-dir DIR [--plugin PATH] [--env K=V]...
+              [--conflicts warn|error] [--conflict-lines N]
 ```
 
 | Argument | Description |
 |----------|-------------|
 | `SPECS` | Zero or more YAML spec files. |
 | `--out-dir` | **Required.** Directory that receives `openapi.yaml` / `asyncapi.yaml`. |
-| `--plugin PATH` | Plugin module or directory; its `bundle(loader)` hook contributes additional specs. |
+| `--plugin PATH` | Plugin module or directory; its `collect(loader)` hook contributes additional specs. |
 | `--env K=V` | Config entry passed to the plugin. Repeatable. |
+| `--conflicts warn\|error` | `warn` (default) reports conflicts and writes the output. `error` reports them, writes nothing and exits 1. |
+| `--conflict-lines N` | Cap the difference lines printed per conflict. Default: every line. |
+
+The inputs share one namespace. Containers are merged: each spec may add
+paths, methods and path parameters to a path, and entries to
+`components`. Named definitions are not: a schema (or any other
+`components` entry), a field of an operation, and an AsyncAPI channel,
+operation or server defined differently by two specs is a conflict, and
+the first spec's definition is kept whole. The same definition appearing
+in two specs is not a conflict.
+
+Each conflict gives both definitions as `<spec $id>#<pointer>`, the one
+kept first, and lists what differs. A spec without a `$id` is named by its
+`file://` path.
+
+```
+warning: conflict: zephyr://app/poe/v0#/components/schemas/port vs zephyr://app/switch/v0#/components/schemas/port
+  /required/0: "enabled" != "speed"
+  /properties/enabled: only in zephyr://app/poe/v0
+  /properties/speed: only in zephyr://app/switch/v0
+```
+
+Lists are compared position by position, so a difference inside a set
+such as `required` reads as the positions that differ, not as the members
+added or removed.
+
+`info` and root-level `x-*` extensions describe one input, not the joined
+API: the first spec's are used and a disagreement is not reported. `$id`
+names one input too, and is left out of the output.
+
+A `$ref` into another input (`./sibling.yaml#/x`, `scheme://module/name/vN#/x`)
+is rewritten to the local `#/x`. A local ref with no target in the joined
+document is reported as a warning.
 
 #### jsmn render
 

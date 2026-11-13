@@ -1,0 +1,11 @@
+asyncapi: "3.0.0"
+info:
+  title: Test API
+  version: "1.0.0"
+channels:
+  status:
+    address: poe.{serial}.status
+    messages:
+      ports:
+        payload:
+          type: string

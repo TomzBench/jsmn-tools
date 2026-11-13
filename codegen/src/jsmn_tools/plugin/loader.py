@@ -15,7 +15,7 @@ from __future__ import annotations
 import importlib.util
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, NamedTuple, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from jinja2 import Environment
 from referencing import Registry, Resource
@@ -23,8 +23,8 @@ from referencing.jsonschema import DRAFT202012
 from ruamel.yaml import YAML
 
 from jsmn_tools.jsmn import bundle_codegen, extend_codegen
-from jsmn_tools.spec import ASYNCAPI_3_0, OPENAPI_3_1, parse_draft, split_draft
-from jsmn_tools.walk import JoinConflict, join, prefixer
+from jsmn_tools.spec import parse_draft
+from jsmn_tools.walk import prefixer
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
@@ -47,13 +47,6 @@ class RenderError(Exception):
     """Raised when a template fails to render."""
 
 
-class BundleResult(NamedTuple):
-    openapi: Any | None
-    asyncapi: Any | None
-    other: list[Any]
-    conflicts: list[JoinConflict]
-
-
 class Plugin(Protocol):
     """Plugin contract for .jsmn-tools.py modules.
 
@@ -63,15 +56,11 @@ class Plugin(Protocol):
     Required:
         collect(loader) -> list[Resource]
 
-    Required:
-        bundle(loader) -> BundleResult
-
     Optional:
         jinja(loader) -> Environment
     """
 
     collect: Callable[[Loader], list[Resource]]
-    bundle: Callable[[Loader], BundleResult]
 
 
 class Recorder:
@@ -175,18 +164,6 @@ class Loader:
 
 def _escape(path: Path) -> str:
     return str(path).replace("\\", "/").replace(" ", "\\ ")
-
-
-def load_bundle(*specs: Any) -> BundleResult:
-    openapi, asyncapi, other = split_draft(*specs)
-    joined = join(*openapi, draft=OPENAPI_3_1)
-    joined_a = join(*asyncapi, draft=ASYNCAPI_3_0)
-    return BundleResult(
-        openapi=joined.value,
-        asyncapi=joined_a.value,
-        other=other,
-        conflicts=[*joined.conflicts, *joined_a.conflicts],
-    )
 
 
 def render(

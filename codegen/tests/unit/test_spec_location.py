@@ -145,3 +145,36 @@ def test_unpack_extend() -> None:
 
 def test_equality_with_tuple() -> None:
     assert Location(("a", "b")) == ("a", "b")
+
+
+DOC = {"a": {"b": [10, {"c": None}]}, "s": "text"}
+
+
+def test_resolve() -> None:
+    assert Location(("a", "b", "0")).resolve(DOC) == 10
+    assert Location(("a", "b", 1, "c")).resolve(DOC) is None
+    assert Location().resolve(DOC) is DOC
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        ("x",),  # no such key
+        ("a", "b", "5"),  # index out of range
+        ("a", "b", "c"),  # list indexed by name
+        ("s", "t"),  # into a scalar
+        ("a", "b", "0", "c"),  # into a number
+    ],
+)
+def test_resolve_miss_is_lookup_error(path: tuple) -> None:
+    with pytest.raises(LookupError, match=Location(path).to_pointer()):
+        Location(path).resolve(DOC)
+    assert Location(path).get(DOC) is None
+    assert Location(path).get(DOC, "fallback") == "fallback"
+    assert not Location(path).exists(DOC)
+
+
+def test_null_is_a_value() -> None:
+    loc = Location(("a", "b", "1", "c"))
+    assert loc.get(DOC, "fallback") is None
+    assert loc.exists(DOC)

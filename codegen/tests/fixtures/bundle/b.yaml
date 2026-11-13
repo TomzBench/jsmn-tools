@@ -1,0 +1,17 @@
+openapi: "3.1.0"
+$id: scheme://m/b/v0
+info:
+  title: b
+  version: "2"
+x-vendor: b
+components:
+  schemas:
+    port:
+      type: object
+      properties:
+        speed:
+          type: integer
+    name:
+      type: string
+    gone:
+      $ref: "scheme://m/c/v0#/components/schemas/missing"

@@ -21,7 +21,7 @@ schema_enter     = SchemaNode(SchemaKind.SCHEMA_ENTER)
 
 map_schema.configure(child=schema)
 map_schema_enter.configure(child=schema_enter)
-map_string_set.configure(child=data, behavior=Behavior(sort_key=str))
+map_string_set.configure(child=data, behavior=Behavior(identity=str))
 
 # fmt: off
 _SCHEMA_KEYWORDS: dict[str, tuple[Node[Any], Behavior]] = {
@@ -48,19 +48,19 @@ _SCHEMA_KEYWORDS: dict[str, tuple[Node[Any], Behavior]] = {
     "default":                  (data, _NO_BHV),
     "example":                  (data, _NO_BHV),
     "const":                    (data, _NO_BHV),
-    "examples":                 (data, Behavior(sort_key=canonical)),
+    "examples":                 (data, Behavior(identity=canonical)),
     # OpenAPI / AsyncAPI extensions (objects, not schemas)
     "discriminator":            (data, _NO_BHV),
     "xml":                      (data, _NO_BHV),
     "externalDocs":             (data, _NO_BHV),
     # Primitive set-like arrays (sorted)
-    "required":                 (data, Behavior(sort_key=str)),
-    "enum":                     (data, Behavior(sort_key=canonical)),
-    "type":                     (data, Behavior(sort_key=str)),
+    "required":                 (data, Behavior(identity=str)),
+    "enum":                     (data, Behavior(identity=canonical)),
+    "type":                     (data, Behavior(identity=str)),
     # Schema set-like arrays (sorted)
-    "anyOf":                    (schema, Behavior(sort_key=canonical)),
-    "oneOf":                    (schema, Behavior(sort_key=canonical)),
-    "allOf":                    (schema, Behavior(sort_key=canonical)),
+    "anyOf":                    (schema, Behavior(identity=canonical)),
+    "oneOf":                    (schema, Behavior(identity=canonical)),
+    "allOf":                    (schema, Behavior(identity=canonical)),
 }
 # fmt: on
 

@@ -17,7 +17,7 @@ def prefixer[E: str](
     """
     if not prefix:
         return obj
-    root = (draft, Behavior(sort_key=None))
+    root = (draft, Behavior())
     return _prefixer(obj, root, ROOT, prefix=prefix)
 
 

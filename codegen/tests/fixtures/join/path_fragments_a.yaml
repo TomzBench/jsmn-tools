@@ -1,0 +1,13 @@
+openapi: "3.1.0"
+info:
+  title: Test API
+  version: "1.0.0"
+paths:
+  /x:
+    get:
+      operationId: a
+      responses:
+        "200": {}
+    parameters:
+      - name: id
+        in: path

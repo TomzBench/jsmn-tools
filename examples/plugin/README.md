@@ -1,7 +1,7 @@
 # plugin
 
-A minimal jsmn-tools plugin that demonstrates the three hooks the CLI
-respects: `collect`, `bundle`, and `jinja`. The plugin discovers specs
+A minimal jsmn-tools plugin that demonstrates the two hooks the CLI
+respects: `collect` and `jinja`. The plugin discovers specs
 from `specs/` programmatically (no spec list on the command line) and
 adds a custom Jinja filter plus a template global that the rendered
 template uses.
@@ -59,10 +59,6 @@ list of `Resource` objects — same type the CLI produces from positional
 `*.yaml` arguments. Here it globs `specs/*.yaml`, but nothing stops a
 plugin from fetching specs over HTTP, filtering by tag, or generating
 them inline.
-
-**`bundle(loader)`** is the entry point for `jsmn bundle`. For a plugin
-that already implements `collect`, a one-line wrapper around
-`load_bundle()` is usually enough.
 
 **`jinja(loader)`** is optional. It returns a pre-populated `Environment`
 that jsmn-tools then overlays with its own loaders, filters, tests,

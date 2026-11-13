@@ -1,8 +1,8 @@
 from .behavior import (
     _NO_BHV,
+    NAMED,
     Behavior,
-    ConflictPolicy,
-    SortKey,
+    Identity,
     canonical,
     identity_key,
     sort_set,
@@ -23,12 +23,13 @@ from .ref import Ref
 from .uri import SchemeURI
 
 __all__ = [
+    "NAMED",
     "ROOT",
     "_NO_BHV",
     "Behavior",
-    "ConflictPolicy",
     "DataNode",
     "DraftKeys",
+    "Identity",
     "Location",
     "MapNode",
     "Node",
@@ -37,7 +38,6 @@ __all__ = [
     "SchemaKind",
     "SchemaNode",
     "SchemeURI",
-    "SortKey",
     "canonical",
     "data",
     "identity_key",

@@ -3,24 +3,32 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from dataclasses import dataclass
-from enum import Enum, auto
 from typing import Any
 
-
-class ConflictPolicy(Enum):
-    KEEP = auto()
-    REPLACE = auto()
+Identity = Callable[[Any], str]
 
 
 @dataclass(frozen=True)
 class Behavior:
-    sort_key: Callable[[Any], str] | None
-    conflict_policy: ConflictPolicy = ConflictPolicy.KEEP
+    """How the collection at one location of a draft behaves.
+
+    ``identity`` says the entries of the collection are identified things:
+    it maps a list item, or a dict key, to the string that identifies it.
+    Two entries with one identity are the same thing, so a join compares
+    them whole and reports a conflict when they differ; it never merges
+    into them. A list with an identity is also kept sorted by it.
+
+    Without an identity a dict is merged key by key and a list position by
+    position. A conflict keeps the first value seen.
+    """
+
+    identity: Identity | None = None
 
 
-_NO_BHV = Behavior(sort_key=None)
+_NO_BHV = Behavior()
 
-SortKey = Callable[[Any], str]
+# A map of named definitions: the key is the name.
+NAMED = Behavior(identity=str)
 
 
 def canonical(x: Any) -> str:
@@ -28,12 +36,13 @@ def canonical(x: Any) -> str:
     return json.dumps(x, sort_keys=True)
 
 
-def identity_key(*fields: str) -> SortKey:
+def identity_key(*fields: str) -> Identity:
     """Create a sort key from identity fields of a dict."""
     def key(x: Any) -> str:
         if isinstance(x, dict):
             return "\x00".join(x.get(f, "") for f in fields)
         return canonical(x)
+
     return key
 
 

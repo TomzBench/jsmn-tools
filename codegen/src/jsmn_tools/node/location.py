@@ -31,10 +31,32 @@ class Location(tuple):
         return Location((*self, key))
 
     def resolve(self, doc: Any) -> Any:
+        """The value at this location in *doc*; LookupError if there is none."""
         node = doc
         for key in self:
-            node = node[key]
+            try:
+                node = node[int(key)] if isinstance(node, list) else node[key]
+            except (LookupError, TypeError, ValueError):
+                raise LookupError(self.to_pointer()) from None
         return node
+
+    def get(self, doc: Any, default: Any = None) -> Any:
+        """The value at this location in *doc*, or *default* if there is none.
+
+        ``None`` is a legal value in a document; pass a sentinel as *default*
+        to tell a null from a miss.
+        """
+        try:
+            return self.resolve(doc)
+        except LookupError:
+            return default
+
+    def exists(self, doc: Any) -> bool:
+        """Whether *doc* has a value at this location."""
+        return self.get(doc, _MISSING) is not _MISSING
+
+
+_MISSING: Any = object()
 
 
 ROOT = Location()

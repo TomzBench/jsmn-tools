@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from jinja2 import Environment
 from referencing import Resource
@@ -21,14 +22,11 @@ from referencing.jsonschema import DRAFT202012
 
 from jsmn_tools.jsmn import join_jinja
 from jsmn_tools.node import ObjectNode, SchemeURI
-from jsmn_tools.plugin.loader import (
-    BundleResult,
-    Loader,
-    Plugin,
-    load_bundle,
-)
 from jsmn_tools.spec import parse_draft
 from jsmn_tools.walk import prefixer
+
+if TYPE_CHECKING:
+    from jsmn_tools.plugin.loader import Loader, Plugin
 
 type Specs[T] = dict[ObjectNode | None, list[T]]
 
@@ -114,10 +112,6 @@ class ZephyrWorkspace:
             for plugin in self.plugins.values()
             for r in plugin.collect(self.loader)
         ]
-
-    def bundle(self) -> BundleResult:
-        """One joined document per draft over the whole workspace."""
-        return load_bundle(*[r.contents for r in self.resources()])
 
     def jinja(self) -> Environment:
         """The join of every module's jinja() environment."""

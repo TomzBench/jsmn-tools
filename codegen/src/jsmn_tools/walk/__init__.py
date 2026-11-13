@@ -1,3 +1,4 @@
+from .dangling import Dangling, dangling
 from .diff import (
     Diff,
     Extra,
@@ -15,6 +16,7 @@ from .prefixer import prefixer
 from .walk import Step, walk
 
 __all__ = [
+    "Dangling",
     "Diff",
     "Extra",
     "JoinConflict",
@@ -23,6 +25,7 @@ __all__ = [
     "MissMatch",
     "Missing",
     "Step",
+    "dangling",
     "diff",
     "extra",
     "join",

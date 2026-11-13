@@ -4,8 +4,10 @@ from enum import StrEnum
 
 from jsmn_tools.node import (
     _NO_BHV,
+    NAMED,
     Behavior,
     DraftKeys,
+    Location,
     MapNode,
     ObjectNode,
     canonical,
@@ -14,6 +16,7 @@ from jsmn_tools.node import (
 )
 
 from .json_schema import map_schema_enter, schema_enter
+from .rules import Verdict
 
 _param_key = identity_key("in", "name")
 
@@ -80,32 +83,33 @@ obj_root.configure(table={
     "webhooks":         (map_path_item, _NO_BHV),
     "components":       (obj_components, _NO_BHV),
     "servers":          (obj_server, _NO_BHV),
-    "security":         (map_scope, Behavior(sort_key=canonical)),
+    "security":         (map_scope, Behavior(identity=canonical)),
 })
 
 obj_info.configure(table={})
 
 obj_components.configure(table={
-    "schemas":          (map_schema_enter, _NO_BHV),
-    "parameters":       (map_parameter, _NO_BHV),
-    "headers":          (map_header, _NO_BHV),
-    "requestBodies":    (map_request_body, _NO_BHV),
-    "responses":        (map_response, _NO_BHV),
-    "pathItems":        (map_path_item, _NO_BHV),
-    "callbacks":        (map_callback, _NO_BHV),
-    "links":            (map_link, _NO_BHV),
+    "schemas":          (map_schema_enter, NAMED),
+    "parameters":       (map_parameter, NAMED),
+    "headers":          (map_header, NAMED),
+    "requestBodies":    (map_request_body, NAMED),
+    "responses":        (map_response, NAMED),
+    "pathItems":        (map_path_item, NAMED),
+    "callbacks":        (map_callback, NAMED),
+    "links":            (map_link, NAMED),
+    "securitySchemes":  (data, NAMED),
 })
 
 obj_path_item.configure(table={
-    "get":              (obj_operation, _NO_BHV),
-    "put":              (obj_operation, _NO_BHV),
-    "post":             (obj_operation, _NO_BHV),
-    "delete":           (obj_operation, _NO_BHV),
-    "options":          (obj_operation, _NO_BHV),
-    "head":             (obj_operation, _NO_BHV),
-    "patch":            (obj_operation, _NO_BHV),
-    "trace":            (obj_operation, _NO_BHV),
-    "parameters":       (obj_parameter, Behavior(sort_key=_param_key)),
+    "get":              (obj_operation, NAMED),
+    "put":              (obj_operation, NAMED),
+    "post":             (obj_operation, NAMED),
+    "delete":           (obj_operation, NAMED),
+    "options":          (obj_operation, NAMED),
+    "head":             (obj_operation, NAMED),
+    "patch":            (obj_operation, NAMED),
+    "trace":            (obj_operation, NAMED),
+    "parameters":       (obj_parameter, Behavior(identity=_param_key)),
     "servers":          (obj_server, _NO_BHV),
 })
 
@@ -113,10 +117,10 @@ obj_operation.configure(table={
     "requestBody":      (obj_request_body, _NO_BHV),
     "responses":        (map_response, _NO_BHV),
     "callbacks":        (map_callback, _NO_BHV),
-    "parameters":       (obj_parameter, Behavior(sort_key=_param_key)),
+    "parameters":       (obj_parameter, Behavior(identity=_param_key)),
     "servers":          (obj_server, _NO_BHV),
-    "security":         (map_scope, Behavior(sort_key=canonical)),
-    "tags":             (data, Behavior(sort_key=str)),
+    "security":         (map_scope, Behavior(identity=canonical)),
+    "tags":             (data, Behavior(identity=str)),
 })
 
 obj_parameter.configure(table={
@@ -148,7 +152,7 @@ obj_server.configure(table={
 })
 
 obj_server_var.configure(table={
-    "enum":             (data, Behavior(sort_key=str)),
+    "enum":             (data, Behavior(identity=str)),
 })
 
 obj_link.configure(table={
@@ -165,7 +169,22 @@ map_request_body.configure(child=obj_request_body)
 map_link.configure(child=obj_link)
 map_callback.configure(child=map_path_item)
 map_server_var.configure(child=obj_server_var)
-map_scope.configure(child=data, behavior=Behavior(sort_key=str))
+map_scope.configure(child=data, behavior=Behavior(identity=str))
 # fmt: on
 
 type OpenApi31Keys = DraftKeys[OpenAPIKind]
+
+
+def conflict_rules(path: Location) -> Verdict:
+    """Per-document metadata is the first spec's; anything else is an error.
+
+    ``info`` and root extensions describe one input document, not the
+    joined API, so two inputs disagreeing on them says nothing.
+    """
+    match path:
+        case ("info", *_):
+            return Verdict.IGNORE
+        case (str(key), *_) if key.startswith("x-"):
+            return Verdict.IGNORE
+        case _:
+            return Verdict.ERROR

@@ -7,10 +7,11 @@ the same loader). --depfile writes the recorder's inputs as a Make-style
 depfile so a build system re-runs the command when any of them changes.
 
 jsmn bundle [specs...] [--plugin PATH] [--env K=V...] --out-dir DIR
-    - CLI specs: split by draft, join each, produce BundleResult
-    - Plugin: plugin.bundle(loader) -> BundleResult
-    - Both: join per-draft across CLI and plugin results
-    - Write up to 3 files to out-dir: openapi.yaml, asyncapi.yaml
+            [--conflicts warn|error] [--conflict-lines N]
+    - CLI specs: loader.load_resource(path) auto-assigns file:// $id
+    - Plugin: plugin.collect(loader)
+    - Both: one list, split by draft, each draft normalized and joined once
+    - Write to out-dir: openapi.yaml, asyncapi.yaml
 
 jsmn render [specs...] [--plugin PATH] [--env K=V...] [--global K=V...]
             [--template SRC OUT...] [--prefix PREFIX] [--depfile FILE]
@@ -22,9 +23,11 @@ jsmn render [specs...] [--plugin PATH] [--env K=V...] [--global K=V...]
 """
 
 import argparse
+import json
 import sys
 from importlib.resources import files
 from pathlib import Path
+from typing import Any, NoReturn
 
 from jinja2 import Environment
 from referencing import Registry, Resource
@@ -38,21 +41,32 @@ from jsmn_tools.jsmn.prepare import (
     sort_declarations,
 )
 from jsmn_tools.lang import python, typescript
-from jsmn_tools.plugin.loader import (
-    BundleResult,
-    Loader,
-    Plugin,
-    Recorder,
-    load_bundle,
+from jsmn_tools.node import Behavior, Location
+from jsmn_tools.plugin.loader import Loader, Plugin, Recorder
+from jsmn_tools.spec import (
+    ASYNCAPI_3_0,
+    ASYNCAPI_3_0_RULES,
+    OPENAPI_3_1,
+    OPENAPI_3_1_RULES,
+    ConflictRules,
+    Verdict,
+    split_draft,
 )
-from jsmn_tools.spec import ASYNCAPI_3_0, OPENAPI_3_1
-from jsmn_tools.walk import join
+from jsmn_tools.walk import (
+    Extra,
+    JoinConflict,
+    Missing,
+    dangling,
+    diff,
+    join,
+    normalize,
+)
 
 JSMN_RUNTIME_DIR = files("jsmn_tools").joinpath("jsmn", "runtime")
 RUNTIME_FILES = ("runtime.c", "runtime.h", "jsmn.h")
 
 
-def _die(fmt: str, *args: object) -> None:
+def _die(fmt: str, *args: object) -> NoReturn:
     print(f"error: {fmt % args}" if args else f"error: {fmt}", file=sys.stderr)
     sys.exit(1)
 
@@ -85,38 +99,93 @@ def _parse_kv(items: list[str]) -> dict[str, str]:
     return dict(e.split("=", 1) for e in items)
 
 
-def _merge_bundles(a: BundleResult, b: BundleResult) -> BundleResult:
-    oa = [x for x in [a.openapi, b.openapi] if x]
-    aa = [x for x in [a.asyncapi, b.asyncapi] if x]
-    return BundleResult(
-        openapi=join(*oa, draft=OPENAPI_3_1).value
-        if len(oa) > 1
-        else next(iter(oa), None),
-        asyncapi=join(*aa, draft=ASYNCAPI_3_0).value
-        if len(aa) > 1
-        else next(iter(aa), None),
-        other=[*a.other, *b.other],
-        conflicts=[*a.conflicts, *b.conflicts],
-    )
-
-
-def _collect_registry(
+def _collect_resources(
     *specs: str,
     loader: Loader,
     plugin: Plugin | None = None,
     prefix: str | None = None,
-) -> Registry:
-    """Build a Registry from spec files and plugin resources."""
-
-    resources: list[Resource] = []
-    if specs:
-        resources += [
-            loader.load_resource(Path(s), prefix=prefix) for s in specs
-        ]
+) -> list[Resource]:
+    """The run's specs: the files on the command line, then the plugin's."""
+    resources = [loader.load_resource(Path(s), prefix=prefix) for s in specs]
     if plugin:
         resources += plugin.collect(loader)
-    registry = resources @ Registry()
-    return registry
+    return resources
+
+
+def _explain(
+    conflict: JoinConflict, specs: dict[str, Any], limit: int | None
+) -> list[str]:
+    """One line naming both sides, then one line per difference.
+
+    *specs* are the join's inputs by ``$id``. ``limit`` caps the difference
+    lines; None prints every one.
+    """
+    (kept, *path) = conflict.destination
+    (rejected, *_) = conflict.source
+    where = Location(path)
+    pointer = where.to_pointer()
+    details: list[str] = []
+    (a, b) = (where.resolve(specs[kept]), where.resolve(specs[rejected]))
+    differences = diff(a, b)
+    for loc, d in differences.items():
+        at = f"{loc.to_pointer()}: " if loc else ""
+        if isinstance(d, Missing):
+            details.append(f"  {at}only in {kept}")
+        elif isinstance(d, Extra):
+            details.append(f"  {at}only in {rejected}")
+        else:
+            (x, y) = (json.dumps(d.self), json.dumps(d.other))
+            details.append(f"  {at}{x} != {y}")
+    shown = details if limit is None else details[:limit]
+    lines = [f"{kept}#{pointer} vs {rejected}#{pointer}", *shown]
+    if len(shown) < len(details):
+        lines.append(f"  ... {len(details) - len(shown)} more")
+    return lines
+
+
+def _report(
+    conflicts: list[JoinConflict],
+    specs: dict[str, Any],
+    rules: ConflictRules,
+    mode: str,
+    limit: int | None,
+) -> bool:
+    """Print every conflict the rules do not ignore; True if any must fail.
+
+    *mode* ``warn`` reports an error as a warning.
+    """
+    failed = False
+    for c in conflicts:
+        verdict = rules(Location(c.source[1:]))
+        if verdict is Verdict.IGNORE:
+            continue
+        if verdict is Verdict.ERROR and mode == "warn":
+            verdict = Verdict.WARN
+        failed = failed or verdict is Verdict.ERROR
+        (head, *rest) = _explain(c, specs, limit)
+        print(f"{verdict.value}: conflict: {head}", file=sys.stderr)
+        for line in rest:
+            print(line, file=sys.stderr)
+    return failed
+
+
+def _join(
+    specs: list[Any],
+    draft: Any,
+    rules: ConflictRules,
+    name: str,
+    mode: str,
+    lines: int | None,
+) -> tuple[Any, bool]:
+    """Join one draft's specs and report on it: (document, must fail)."""
+    normalized = [normalize(spec, (draft, Behavior())) for spec in specs]
+    result = join(*normalized, draft=draft)
+    by_id = {spec["$id"]: spec for spec in normalized}
+    failed = _report(result.conflicts, by_id, rules, mode, lines)
+    for d in dangling(result.value, draft):
+        at = d.location.to_pointer()
+        print(f"warning: dangling $ref: {name}#{at}: {d.ref}", file=sys.stderr)
+    return (result.value, failed)
 
 
 def _build_jinja_environment(
@@ -124,12 +193,13 @@ def _build_jinja_environment(
 ) -> Environment:
     prefix = getattr(args, "prefix", None)
     plugin = _resolve_plugin(args.plugin, loader) if args.plugin else None
-    registry = _collect_registry(
+    resources = _collect_resources(
         *args.specs,
         prefix=prefix,
         loader=loader,
         plugin=plugin,
     )
+    registry = resources @ Registry()
 
     jinja_hook = getattr(plugin, "jinja", None) if plugin else None
     jinja_env = jinja_hook(loader) if jinja_hook else None
@@ -165,52 +235,40 @@ def _cmd_cmake_dir(_args: argparse.Namespace) -> None:
 
 def _cmd_bundle(args: argparse.Namespace) -> None:
     loader = Loader(_parse_kv(args.env))
-    out = Path(args.out_dir)
-    out.mkdir(parents=True, exist_ok=True)
-
-    cli_bundle = None
-    plugin_bundle = None
-
-    if args.specs:
-        specs = [loader.read_yaml(Path(s)) for s in args.specs]
-        cli_bundle = load_bundle(*specs)
-
-    if args.plugin:
-        plugin = _resolve_plugin(args.plugin, loader)
-        plugin_bundle = plugin.bundle(loader)
-
-    if not cli_bundle and not plugin_bundle:
+    plugin = _resolve_plugin(args.plugin, loader) if args.plugin else None
+    resources = _collect_resources(*args.specs, loader=loader, plugin=plugin)
+    if not resources:
         _die("no specs provided (pass spec files or --plugin)")
 
-    if cli_bundle and plugin_bundle:
-        result = _merge_bundles(cli_bundle, plugin_bundle)
-    else:
-        result = cli_bundle or plugin_bundle
+    (openapi, asyncapi, other) = split_draft(*[r.contents for r in resources])
+    outputs: dict[str, Any] = {}
+    failed = False
+    for name, draft, rules, specs in (
+        ("openapi.yaml", OPENAPI_3_1, OPENAPI_3_1_RULES, openapi),
+        ("asyncapi.yaml", ASYNCAPI_3_0, ASYNCAPI_3_0_RULES, asyncapi),
+    ):
+        if specs:
+            (doc, bad) = _join(
+                specs, draft, rules, name, args.conflicts, args.conflict_lines
+            )
+            outputs[name] = doc
+            failed = failed or bad
+    if failed:
+        _die("conflicts joining specs; nothing written")
 
-    for c in result.conflicts:
-        print(f"warning: conflict at {c.location} from {c.id}", file=sys.stderr)
+    # A spec of neither draft is not joined; it is written as it was read,
+    # less the file:// $id the loader stamps on a spec that has none.
+    for i, spec in enumerate(other):
+        stamped = str(spec.get("$id", "")).startswith("file://")
+        outputs[f"other.{i}.yaml"] = (
+            {k: v for k, v in spec.items() if k != "$id"} if stamped else spec
+        )
 
-    # TODO: $id leak in bundle output.
-    # join() preserves the first spec's top-level $id in the merged document.
-    # For CLI-loaded specs, that $id is `file:///abs/path/spec_a.yaml` (set by
-    # Loader.load_resource via path.resolve().as_uri()). Written verbatim to
-    # here, the bundled output carries a machine-specific absolute path —
-    # not portable.
-    #
-    # Fix should happen in the writer, not in load_resource (the file:// base
-    # is load-bearing for relative-ref resolution during render). Options:
-    #   - Strip $id from result.{openapi,asyncapi} before dumping. Simplest,
-    #     if the bundle is a terminal artifact.
-    #   - Accept a CLI flag (e.g. --id) to stamp a synthetic $id on write.
-    #   - Detect file:// $ids (CLI-origin) and rewrite to something stable
-    #     during join.
+    out = Path(args.out_dir)
+    out.mkdir(parents=True, exist_ok=True)
     writer = YAML()
-    if result.openapi:
-        writer.dump(result.openapi, out / "openapi.yaml")
-    if result.asyncapi:
-        writer.dump(result.asyncapi, out / "asyncapi.yaml")
-    for i, other in enumerate(result.other):
-        writer.dump(other, out / f"other.{i}.yaml")
+    for name, doc in outputs.items():
+        writer.dump(doc, out / name)
 
 
 def _cmd_render(args: argparse.Namespace) -> None:
@@ -260,12 +318,13 @@ def _cmd_types(args: argparse.Namespace) -> None:
     loader = Loader(_parse_kv(args.env))
     prefix = getattr(args, "prefix", None)
     plugin = _resolve_plugin(args.plugin, loader) if args.plugin else None
-    registry = _collect_registry(
+    resources = _collect_resources(
         *args.specs,
         prefix=prefix,
         loader=loader,
         plugin=plugin,
     )
+    registry = resources @ Registry()
     result = flatten_registry(registry)
     for err in result.errors:
         print(f"warning: {err}", file=sys.stderr)
@@ -301,6 +360,18 @@ def main() -> None:
         help="config passed to plugin",
     )
     p.add_argument("--out-dir", required=True, help="output directory")
+    p.add_argument(
+        "--conflicts",
+        choices=["warn", "error"],
+        default="warn",
+        help="warn: report conflicts and write; error: report and fail",
+    )
+    p.add_argument(
+        "--conflict-lines",
+        type=int,
+        metavar="N",
+        help="cap the difference lines printed per conflict (default: all)",
+    )
     p.set_defaults(func=_cmd_bundle)
 
     # render

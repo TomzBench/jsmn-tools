@@ -1,78 +1,42 @@
 import pytest
 
 from jsmn_tools.node import Ref
-
-OPENAPI_SUFFIX = ".openapi.yaml"
-ASYNCAPI_SUFFIX = ".asyncapi.yaml"
+from jsmn_tools.walk.normalize import collapse_ref
 
 
 @pytest.mark.parametrize(
-    "raw, suffix, expected",
+    "raw, expected",
     [
-        # local — unchanged (suffix irrelevant)
-        (
-            "#/components/schemas/Foo",
-            OPENAPI_SUFFIX,
-            "#/components/schemas/Foo",
-        ),
+        # local — unchanged
+        ("#/components/schemas/Foo", "#/components/schemas/Foo"),
         # relative — collapse to fragment
         (
             "./auth.openapi.yaml#/components/schemas/Token",
-            OPENAPI_SUFFIX,
             "#/components/schemas/Token",
         ),
         # relative, no fragment — pass through unchanged (authoring mistake)
-        ("./auth.openapi.yaml", OPENAPI_SUFFIX, "./auth.openapi.yaml"),
-        # scheme — rewrite to relative output file (openapi suffix)
+        ("./auth.openapi.yaml", "./auth.openapi.yaml"),
+        # scheme — the target is in the joined document: collapse to fragment
         (
             "forge://sdk/common/v0#/components/schemas/Bar",
-            OPENAPI_SUFFIX,
-            "./sdk.openapi.yaml#/components/schemas/Bar",
+            "#/components/schemas/Bar",
         ),
-        # scheme — rewrite to relative output file (asyncapi suffix)
-        (
-            "forge://sdk/common/v0#/components/schemas/Bar",
-            ASYNCAPI_SUFFIX,
-            "./sdk.asyncapi.yaml#/components/schemas/Bar",
-        ),
-        # scheme, no fragment
-        ("forge://sdk/common/v0", OPENAPI_SUFFIX, "./sdk.openapi.yaml"),
-        # scheme, no fragment (asyncapi)
-        ("forge://sdk/common/v0", ASYNCAPI_SUFFIX, "./sdk.asyncapi.yaml"),
+        ("other://mod/res/v1#/path", "#/path"),
+        # scheme, no fragment — nothing to point at, unchanged
+        ("forge://sdk/common/v0", "forge://sdk/common/v0"),
         # external URL — unchanged
         (
             "https://example.com/schema.json#/Foo",
-            OPENAPI_SUFFIX,
             "https://example.com/schema.json#/Foo",
         ),
-        # other virtual scheme — also rewritten
-        (
-            "other://mod/res/v1#/path",
-            OPENAPI_SUFFIX,
-            "./mod.openapi.yaml#/path",
-        ),
-        # http — passthrough
-        (
-            "http://mod/res/v1#/path",
-            OPENAPI_SUFFIX,
-            "http://mod/res/v1#/path",
-        ),
-        # https — passthrough
-        (
-            "https://mod/res/v1#/path",
-            OPENAPI_SUFFIX,
-            "https://mod/res/v1#/path",
-        ),
-        # file — passthrough
-        (
-            "file://mod/res/v1#/path",
-            OPENAPI_SUFFIX,
-            "file://mod/res/v1#/path",
-        ),
+        # http / https / file — passthrough
+        ("http://mod/res/v1#/path", "http://mod/res/v1#/path"),
+        ("https://mod/res/v1#/path", "https://mod/res/v1#/path"),
+        ("file://mod/res/v1#/path", "file://mod/res/v1#/path"),
     ],
 )
-def test_normalize(raw: str, suffix: str, expected: str) -> None:
-    assert Ref(raw).normalize(suffix) == expected
+def test_collapse_ref(raw: str, expected: str) -> None:
+    assert collapse_ref(raw) == expected
 
 
 def test_is_local() -> None:
@@ -85,3 +49,10 @@ def test_is_relative() -> None:
     assert Ref("./file.yaml#/foo").is_relative
     assert not Ref("#/foo").is_relative
     assert not Ref("forge://m/r/v0#/foo").is_relative
+
+
+def test_fragment() -> None:
+    assert Ref("#/foo").fragment == "/foo"
+    assert Ref("./file.yaml#/foo").fragment == "/foo"
+    assert Ref("forge://m/r/v0#/foo").fragment == "/foo"
+    assert Ref("./file.yaml").fragment is None
