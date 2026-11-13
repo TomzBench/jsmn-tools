@@ -2,8 +2,9 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from jsmn_tools.node import Behavior
 from jsmn_tools.spec import OPENAPI_3_1
-from jsmn_tools.walk import join
+from jsmn_tools.walk import normalize
 from ruamel.yaml import YAML
 
 yaml = YAML(typ="safe")
@@ -18,26 +19,21 @@ def walk_data() -> dict[str, Any]:
 def test_normalize_refs(walk_data: dict[str, Any]) -> None:
     """$ref values are rewritten in schema-aware contexts but left
     untouched inside data traps (default, x-*)."""
-    result = join(walk_data["refs"], draft=OPENAPI_3_1)
-    assert result.conflicts == []
-    schemas = result.value["components"]["schemas"]
+    result = normalize(walk_data["refs"], (OPENAPI_3_1, Behavior()))
+    schemas = result["components"]["schemas"]
 
     # Direct $ref — local, unchanged
     assert schemas["direct"]["$ref"] == "#/components/schemas/target"
 
-    # Properties: local unchanged, external rewritten
+    # Properties: local unchanged, scheme ref collapsed to fragment
     props = schemas["in_properties"]["properties"]
     assert props["local"]["$ref"] == "#/components/schemas/target"
-    assert (
-        props["external"]["$ref"]
-        == "./sdk.openapi.yaml#/components/schemas/Foo"
-    )
+    assert props["external"]["$ref"] == "#/components/schemas/Foo"
 
-    # allOf: scheme ref rewritten, relative ref collapsed to fragment
+    # allOf: scheme and relative refs both collapsed to fragment
     allOf = schemas["in_properties"]["allOf"]
     refs = sorted(item["$ref"] for item in allOf)
-    assert "#/components/schemas/Baz" in refs
-    assert "./sdk.openapi.yaml#/components/schemas/Bar" in refs
+    assert refs == ["#/components/schemas/Bar", "#/components/schemas/Baz"]
 
     # $ref with sibling keys — ref rewritten, siblings preserved
     assert schemas["with_siblings"]["$ref"] == "#/components/schemas/target"

@@ -4,14 +4,17 @@ from enum import StrEnum
 
 from jsmn_tools.node import (
     _NO_BHV,
+    NAMED,
     Behavior,
     DraftKeys,
+    Location,
     MapNode,
     ObjectNode,
     data,
 )
 
 from .json_schema import map_schema_enter, schema_enter
+from .rules import Verdict
 
 
 class AsyncAPIKind(StrEnum):
@@ -66,23 +69,23 @@ map_reply = MapNode(AsyncAPIKind.MAP_REPLY)
 
 # fmt: off
 obj_root.configure(table={
-    "servers":          (map_server, _NO_BHV),
-    "channels":         (map_channel, _NO_BHV),
-    "operations":       (map_operation, _NO_BHV),
+    "servers":          (map_server, NAMED),
+    "channels":         (map_channel, NAMED),
+    "operations":       (map_operation, NAMED),
     "components":       (obj_components, _NO_BHV),
 })
 
 obj_components.configure(table={
-    "schemas":          (map_schema_enter, _NO_BHV),
-    "servers":          (map_server, _NO_BHV),
-    "channels":         (map_channel, _NO_BHV),
-    "operations":       (map_operation, _NO_BHV),
-    "messages":         (map_message, _NO_BHV),
-    "parameters":       (map_parameter, _NO_BHV),
-    "operationTraits":  (map_operation_trait, _NO_BHV),
-    "messageTraits":    (map_message_trait, _NO_BHV),
-    "serverVariables":  (map_server_var, _NO_BHV),
-    "replies":          (map_reply, _NO_BHV),
+    "schemas":          (map_schema_enter, NAMED),
+    "servers":          (map_server, NAMED),
+    "channels":         (map_channel, NAMED),
+    "operations":       (map_operation, NAMED),
+    "messages":         (map_message, NAMED),
+    "parameters":       (map_parameter, NAMED),
+    "operationTraits":  (map_operation_trait, NAMED),
+    "messageTraits":    (map_message_trait, NAMED),
+    "serverVariables":  (map_server_var, NAMED),
+    "replies":          (map_reply, NAMED),
 })
 
 obj_channel.configure(table={
@@ -110,13 +113,13 @@ obj_server.configure(table={
 })
 
 obj_server_var.configure(table={
-    "enum":             (data, Behavior(sort_key=str)),
+    "enum":             (data, Behavior(identity=str)),
 })
 
 obj_reply.configure(table={})
 
 obj_parameter.configure(table={
-    "enum":             (data, Behavior(sort_key=str)),
+    "enum":             (data, Behavior(identity=str)),
 })
 
 # --- Map node configuration ---
@@ -132,3 +135,18 @@ map_reply.configure(child=obj_reply)
 # fmt: on
 
 type AsyncApi30Keys = DraftKeys[AsyncAPIKind]
+
+
+def conflict_rules(path: Location) -> Verdict:
+    """Per-document metadata is the first spec's; anything else is an error.
+
+    ``info`` and root extensions describe one input document, not the
+    joined API, so two inputs disagreeing on them says nothing.
+    """
+    match path:
+        case ("info", *_):
+            return Verdict.IGNORE
+        case (str(key), *_) if key.startswith("x-"):
+            return Verdict.IGNORE
+        case _:
+            return Verdict.ERROR

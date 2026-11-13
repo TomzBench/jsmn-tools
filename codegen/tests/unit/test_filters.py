@@ -126,3 +126,22 @@ def test_json_pointer() -> None:
     assert result["type"] == "object"
     assert result["x-jsmn-type"] == "tagged_string"
     assert result["x-jsmn-tag"] == "network"
+
+
+def test_json_pointer_fragment_only_with_base() -> None:
+    """A fragment-only $ref resolves against the document named by base."""
+    spec = FIXTURES / "jsmn-tags.openapi.yaml"
+    resource = Resource.from_contents(
+        yaml.load(spec), default_specification=DRAFT202012
+    )
+    registry: Registry[Any] = [resource] @ Registry()
+    resolver, compiled = bundle_codegen(registry)
+    fns = filters(
+        compiled["table"],
+        compiled["declarations"],
+        resolver,
+    )
+    result = fns["json_pointer"](
+        "#/components/schemas/tagged_string", base="forge://test/tags/v0"
+    )
+    assert result["x-jsmn-type"] == "tagged_string"

@@ -1,21 +1,24 @@
-# Join = normalize + merge
+# Join = merge every spec into one document, remembering who clashed
 
 from dataclasses import dataclass
-from functools import reduce
-from typing import Any, NamedTuple
+from typing import Any
 
 from jsmn_tools.node import Behavior, Location, ObjectNode
 
-from .merge import MergeConflict, merge
-from .normalize import normalize
+from .merge import merge
 
 
 @dataclass
 class JoinConflict:
-    id: str
-    location: Location
-    destination: Any
-    source: Any
+    """Two specs defined one thing differently.
+
+    Both locations are fully resolved: the spec's ``$id``, then the path
+    inside it. ``destination`` is the definition the join kept, ``source``
+    the one it rejected.
+    """
+
+    destination: Location
+    source: Location
 
 
 @dataclass
@@ -24,43 +27,33 @@ class JoinResult:
     conflicts: list[JoinConflict]
 
 
-class Specification(NamedTuple):
-    id: str
-    data: Any
-
-
-def upgrade_conflict(id: str):
-    def upgrader(conflict: MergeConflict) -> JoinConflict:
-        return JoinConflict(
-            id=id,
-            location=conflict.location,
-            destination=conflict.destination,
-            source=conflict.source,
-        )
-
-    return upgrader
-
-
 def join[E: str](*specs: dict, draft: ObjectNode[E]) -> JoinResult:
-    root = (draft, Behavior(sort_key=None))
+    """Merge *specs* into one document
 
-    normalized = [
-        Specification(
-            id=spec.get("$id", f"spec:{i}"),
-            data=normalize(spec, root),
-        )
-        for i, spec in enumerate(specs)
-    ]
+    Args:
+        specs:  A normalized spec with an ``$id`` prop in the root
 
-    def merge_step(acc: JoinResult, spec: Specification) -> JoinResult:
-        (id, src) = spec
-        (r, c) = merge(acc.value, src, root)
-        conflicts = list(map(upgrade_conflict(id), c))
-        return JoinResult(r, acc.conflicts + conflicts)
+    Returns:
+        JoinResult: The joined spec and array of `JoinConflict`s found
+    """
+    dest: Any = {}  # merged result
+    conflicts: list[JoinConflict] = []  # collected conflicts
+    seen: dict[str, Any] = {}  # cache of already seen $id's and their docs
+    root = (draft, Behavior())
 
-    rest = iter(normalized)
-    try:
-        (_, first) = next(rest)
-        return reduce(merge_step, rest, JoinResult(first, []))
-    except StopIteration:
-        return JoinResult({}, [])
+    for spec in specs:
+        id = spec["$id"]
+        if id in seen:
+            raise ValueError(f"join: $id used by two specs: {id}")
+        seen |= {id: spec}
+        # must strip $id or we guarentee $id will merge conflict on n+1
+        doc = {k: v for k, v in spec.items() if k != "$id"}
+        (dest, merge_conflicts) = merge(dest, doc, root)
+        for c in merge_conflicts:
+            conflict_location = next(
+                id for id, doc in seen.items() if c.location.exists(doc)
+            )
+            destination = Location((conflict_location, *c.location))
+            source = Location((id, *c.location))
+            conflicts.append(JoinConflict(destination, source))
+    return JoinResult(dest, conflicts)

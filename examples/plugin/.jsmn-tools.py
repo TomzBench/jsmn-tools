@@ -1,10 +1,9 @@
 """Minimal jsmn-tools plugin.
 
-Exposes three hooks the CLI will call, each with the run's Loader:
+Exposes two hooks the CLI will call, each with the run's Loader:
 
 - collect(loader) — programmatic spec discovery. Anything returned here is
   merged with specs passed on the command line.
-- bundle(loader)  — `jsmn bundle` entry point; joins the collected specs.
 - jinja(loader)   — pre-populates a Jinja Environment with extra filters,
   tests, or globals before jsmn-tools overlays its own codegen bits.
 
@@ -17,8 +16,6 @@ from pathlib import Path
 
 from jinja2 import Environment
 
-from jsmn_tools.plugin.loader import load_bundle
-
 HERE = Path(__file__).parent
 
 
@@ -26,10 +23,6 @@ def collect(loader):
     return [
         loader.load_resource(p) for p in sorted((HERE / "specs").glob("*.yaml"))
     ]
-
-
-def bundle(loader):
-    return load_bundle(*[r.contents for r in collect(loader)])
 
 
 def jinja(loader):

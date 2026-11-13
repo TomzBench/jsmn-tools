@@ -12,7 +12,7 @@ class Step[K: str](NamedTuple):
 
 def walk[K: str](*args: Any, draft: ObjectNode[K]) -> Iterator[Step[K]]:
     """Yield (value, kind, location) for each spec tree."""
-    root = (draft, Behavior(sort_key=None))
+    root = (draft, Behavior())
     for obj in args:
         loc = Location.from_segments(obj["$id"]) if "$id" in obj else ROOT
         yield from _walk(obj, root, loc)

@@ -1,0 +1,22 @@
+$id: a
+openapi: "3.1.0"
+components:
+  schemas:
+    port:
+      type: object
+      required:
+        - label
+        - enabled
+      properties:
+        enabled:
+          type: boolean
+paths:
+  /x:
+    get:
+      parameters:
+        - name: id
+          in: path
+        - name: limit
+          in: query
+          schema:
+            type: a

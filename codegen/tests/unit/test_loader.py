@@ -104,8 +104,6 @@ def test_cli_render_depfile(tmp_path: Path, monkeypatch) -> None:
         "def collect(loader):\n"
         "    loader.read_text(HERE / 'side.txt')\n"
         "    return []\n"
-        "def bundle(loader):\n"
-        "    raise NotImplementedError\n"
     )
     tpl = tmp_path / "out.txt.j2"
     tpl.write_text("hello")

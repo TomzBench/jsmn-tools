@@ -4,6 +4,8 @@ import re
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
+from referencing.exceptions import Unresolvable
+
 from jsmn_tools.node import Location
 
 from .descriptor import (
@@ -134,7 +136,7 @@ def tests(
             if isinstance(tags, str):
                 tags = [tags]
             return tag in tags
-        except (KeyError, IndexError, LookupError):
+        except LookupError:
             return False
 
     return {
@@ -322,10 +324,9 @@ def filters(
 
         try:
             root = resolver.lookup(base[0])
-            location = Location.from_segments(*base[1:], *segments)
-            return location.resolve(root.contents)
-        except Exception:
+        except Unresolvable:
             return None
+        return Location.from_segments(*base[1:], *segments).get(root.contents)
 
     def _lookup_prefix(obj: Any) -> str:
         return location(obj, "x-jsmn-prefix") or ""
@@ -360,8 +361,11 @@ def filters(
 
     # ── JSON pointer filter (resolve $ref via resolver) ───────────────
 
-    def json_pointer(ref: str) -> Any:
-        return resolver.lookup(ref).contents
+    def json_pointer(ref: str, base: str | None = None) -> Any:
+        """Resolve *ref*. A fragment-only ref needs *base*: its document's
+        ``$id``."""
+        scoped = resolver.lookup(base).resolver if base else resolver
+        return scoped.lookup(ref).contents
 
     result: dict[str, Callable[..., Any]] = {
         "dimensions": dimensions,

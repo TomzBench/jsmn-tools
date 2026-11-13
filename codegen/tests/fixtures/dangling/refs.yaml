@@ -1,0 +1,27 @@
+openapi: "3.1.0"
+paths:
+  /x:
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/gone"
+components:
+  schemas:
+    here:
+      type: string
+      enum:
+        - a
+    ok:
+      $ref: "#/components/schemas/here"
+    item:
+      $ref: "#/components/schemas/here/enum/0"
+    path:
+      $ref: "#/paths/~1x/get"
+    out:
+      $ref: "https://example.com/s.json#/x"
+    data:
+      default:
+        $ref: "#/not/a/ref"

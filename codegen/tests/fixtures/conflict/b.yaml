@@ -1,0 +1,20 @@
+$id: b
+openapi: "3.0.0"
+components:
+  schemas:
+    port:
+      type: object
+      required:
+        - label
+        - speed
+      properties:
+        speed:
+          type: integer
+paths:
+  /x:
+    get:
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: b

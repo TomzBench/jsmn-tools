@@ -10,8 +10,8 @@ intentional and composes with the `referencing` library:
   the spec doesn't declare one.
 - `file://` is in `_PASSTHROUGH_SCHEMES` (node/uri.py) — the normalizer leaves
   it alone.
-- `normalize` only runs on the bundle/join path (walk/join.py:50). It does
-  NOT run during render.
+- `normalize` only runs when bundling (cli.py `_join`). It does NOT run
+  during render.
 - During render, `referencing` resolves `$ref`s using each doc's $id as the
   base URI. Relative refs like `./common.yaml#/...` compose against the
   file:// base → another file:// URI → registry lookup succeeds.
@@ -47,20 +47,60 @@ See `examples/cmake/CMakeLists.txt` for typical usage.
 
 #### jsmn bundle
 
-Joins the `components/schemas` sections of one or more OpenAPI / AsyncAPI
-specs into a single merged spec on disk. Useful for downstream tooling
-that expects a single file (e.g., Redocly, Stoplight, openapi-generator).
+Joins one or more OpenAPI / AsyncAPI specs into a single spec per draft
+on disk. Useful for downstream tooling that expects a single file (e.g.,
+Redocly, Stoplight, openapi-generator).
 
 ```console
 $ jsmn bundle [SPECS...] --out-dir DIR [--plugin PATH] [--env K=V]...
+              [--conflicts warn|error] [--conflict-lines N]
 ```
 
 | Argument | Description |
 |----------|-------------|
 | `SPECS` | Zero or more YAML spec files. |
 | `--out-dir` | **Required.** Directory that receives `openapi.yaml` / `asyncapi.yaml`. |
-| `--plugin PATH` | Plugin module or directory; its `bundle(loader)` hook contributes additional specs. |
+| `--plugin PATH` | Plugin module or directory; its `collect(loader)` hook contributes additional specs. |
 | `--env K=V` | Config entry passed to the plugin. Repeatable. |
+| `--conflicts warn\|error` | `warn` (default) reports conflicts and writes the output. `error` reports them, writes nothing and exits 1. |
+| `--conflict-lines N` | Cap the difference lines printed per conflict. Default: every line. |
+
+The inputs share one namespace. Containers are merged: each spec may add
+paths, methods and path parameters to a path, and entries to
+`components`. Named definitions are not: a schema (or any other
+`components` entry), a field of an operation, and an AsyncAPI channel,
+operation or server defined differently by two specs is a conflict, and
+the first spec's definition is kept whole. The same definition appearing
+in two specs is not a conflict.
+
+Each conflict gives both definitions as `<spec $id>#<pointer>`, the one
+kept first, and lists what differs. A spec without a `$id` is named by its
+`file://` path.
+
+```
+warning: conflict: app://sensors/temperature/v1#/components/schemas/reading vs app://sensors/humidity/v1#/components/schemas/reading
+  /required/celsius: only in app://sensors/temperature/v1
+  /required/percent: only in app://sensors/humidity/v1
+  /properties/celsius: only in app://sensors/temperature/v1
+  /properties/percent: only in app://sensors/humidity/v1
+```
+
+Here two specs each define a schema named `reading`. The fix is in the
+specs: give the two schemas different names, or make them the same.
+
+Sets and lists of named items (`required`, `parameters`) are compared by
+member, so a difference names the member (`/parameters/query,limit`)
+rather than a position.
+
+`info` and root-level `x-*` extensions describe one input, not the joined
+API: the first spec's are used and a disagreement is not reported. `$id`
+names one input too, and is left out of the output.
+
+A `$ref` into another input is rewritten to the local `#/x`. That covers
+a relative ref (`./sibling.yaml#/x`) and a ref by `$id` of the form
+`scheme://module/name/vN#/x`, with any scheme other than `http`, `https`
+or `file`. A local ref with no target in the joined document is reported
+as a warning.
 
 #### jsmn render
 
