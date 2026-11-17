@@ -1,0 +1,11 @@
+#ifndef TOKEN_GEN_H_
+#define TOKEN_GEN_H_
+#define JSMN_HEADER
+#include "jsmn.h"
+{% include 'runtime.h' %}
+
+{% include 'token.h' %}
+
+{% include 'jsmn_generated.h' %}
+{% include 'jsmn_token_generated.h' %}
+#endif /* TOKEN_GEN_H_ */

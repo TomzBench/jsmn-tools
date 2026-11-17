@@ -1,0 +1,95 @@
+/* Signed token example.
+ *
+ * Produced by `jsmn render` from main.c.jinja. A server signs a session
+ * token when a user logs in, then verifies the token on each later request
+ * instead of asking for the password again.
+ *
+ * Everything is inlined into this one translation unit: the jsmn parser,
+ * the jsmn-tools runtime, the token runtime, the generated codec, the
+ * generated sign/verify pair, and a crypto backend.
+ */
+
+#include <stdio.h>
+#include <string.h>
+
+{% include "jsmn.h" %}
+
+{% include "runtime.h" %}
+
+{% include "token.h" %}
+
+{% include "jsmn_generated.h" %}
+
+{% include "jsmn_token_generated.h" %}
+
+{% include "runtime.c" %}
+
+{% include "token.c" %}
+
+{# The token shims read the tables jsmn_generated.c keeps static, so they
+   are rendered after it, in the same file. #}
+{% include "jsmn_generated.c" %}
+
+{% include "jsmn_token_generated.c" %}
+
+{# Chosen with --global token_crypto=...; see the Makefile. #}
+{% include "jsmn_token_crypto.c" %}
+
+static const char *
+why(int32_t rc)
+{
+    switch (rc) {
+        case JT_ERR_TOKEN_FORMAT: return "not a token";
+        case JT_ERR_TOKEN_HEADER: return "wrong header";
+        case JT_ERR_TOKEN_SIGNATURE: return "bad signature";
+        case JT_ERR_TOKEN_EXPIRED: return "expired";
+        default: return "bad claims";
+    }
+}
+
+static void
+check(const char *label, const char *tok, const struct jt_key *key,
+      uint32_t now)
+{
+    struct session s;
+    int32_t rc = jsmn_token_verify_session(&s, tok, strlen(tok), key, now);
+    if (rc < 0) {
+        printf("%-9s rejected: %s\n", label, why(rc));
+    } else {
+        printf("%-9s accepted: sub=%s role=%u exp=%u\n", label, s.sub, s.role,
+               s.exp);
+    }
+}
+
+int main(void) {
+    /* The key never leaves the server. A real one is random bytes made at
+     * boot or kept in a keystore, not a string in the source. */
+    static const char secret[] = "an-example-secret-not-for-real-use";
+    const struct jt_key key = {.data = secret, .len = sizeof(secret) - 1};
+
+    /* Login: sign the claims. The buffer is sized by the generator. */
+    const struct session login = {.sub = "installer", .role = 2, .exp = 1000};
+    char tok[JSMN_SESSION_TOKEN_LEN + 1];
+    int32_t n = jsmn_token_sign_session(tok, sizeof(tok), &login, &key);
+    if (n < 0) {
+        fprintf(stderr, "sign failed: %d\n", n);
+        return 1;
+    }
+    printf("token:    %s\n", tok);
+
+    /* Later requests: verify. The claims are decoded only if the signature
+     * matched, and exp is checked against the clock passed in. */
+    check("valid", tok, &key, 999);
+    check("late", tok, &key, 1000);
+
+    /* Changing the claims without the key breaks the signature. */
+    char forged[sizeof(tok)];
+    memcpy(forged, tok, sizeof(tok));
+    forged[40] = forged[40] == 'A' ? 'B' : 'A';
+    check("tampered", forged, &key, 999);
+
+    /* So does a token signed with any other key. */
+    const struct jt_key other = {.data = "some-other-key", .len = 14};
+    check("other key", tok, &other, 999);
+    return 0;
+}

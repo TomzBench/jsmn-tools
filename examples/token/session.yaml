@@ -1,0 +1,21 @@
+openapi: "3.1.0"
+info:
+  title: Session token example
+  version: "0.1.0"
+components:
+  schemas:
+    session:
+      type: object
+      x-jsmn-type: session
+      x-jsmn-token: { alg: HS256 }
+      required: [sub, role, exp]
+      properties:
+        sub:
+          type: string
+          maxLength: 16
+        role:
+          type: integer
+          format: uint8
+        exp:
+          type: integer
+          format: uint32

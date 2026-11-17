@@ -83,3 +83,41 @@ add_executable(test_pack test_pack.c)
 target_link_libraries(test_pack PRIVATE unity::framework runtime)
 add_test(NAME test_pack COMMAND test_pack)
 target_include_directories(test_pack PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
+
+# Signed tokens (x-jsmn-token). The hooks need an HMAC, so the tests build
+# against whichever crypto library the host has; without one they are skipped.
+find_package(OpenSSL QUIET)
+find_package(MbedTLS QUIET)
+if(OpenSSL_FOUND)
+  set(token_crypto openssl)
+  set(token_crypto_libs OpenSSL::Crypto)
+elseif(MbedTLS_FOUND)
+  set(token_crypto mbedtls)
+  set(token_crypto_libs MbedTLS::mbedcrypto)
+endif()
+
+if(token_crypto)
+  cmake_path(SET token_fixtures NORMALIZE "${workspace}/codegen/tests/fixtures/token")
+  file(GLOB token_specs "${token_fixtures}/*.yaml")
+  # cmake-format: off
+  jsmn_render(token_source
+  	TEMPLATES ${templates}/token_gen.h.jinja2 ${CMAKE_CURRENT_BINARY_DIR}/token/token_gen.h
+  			  ${templates}/token_gen.c.jinja2 ${CMAKE_CURRENT_BINARY_DIR}/token/token_gen.c
+  	GLOBAL token_crypto=${token_crypto}
+  	SPECS ${token_specs})
+  # cmake-format: on
+  add_library(token ${CMAKE_CURRENT_BINARY_DIR}/token/token_gen.h
+                    ${CMAKE_CURRENT_BINARY_DIR}/token/token_gen.c)
+  # jsmn.h is rendered by runtime_source
+  add_dependencies(token runtime_source)
+  target_include_directories(token PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/token"
+                                          "${CMAKE_CURRENT_BINARY_DIR}")
+  target_link_libraries(token PUBLIC ${token_crypto_libs})
+
+  add_executable(test_token test_token.c)
+  target_link_libraries(test_token PRIVATE unity::framework token)
+  add_test(NAME test_token COMMAND test_token)
+  message(STATUS "token tests: ${token_crypto} backend")
+else()
+  message(WARNING "token tests skipped: neither OpenSSL nor MbedTLS found")
+endif()
