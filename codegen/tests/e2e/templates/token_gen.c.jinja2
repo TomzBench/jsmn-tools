@@ -1,0 +1,10 @@
+#include "jsmn.h"
+#include "token_gen.h"
+{% include 'runtime.c' %}
+
+{% include 'token.c' %}
+
+{% include 'jsmn_generated.c' %}
+{% include 'jsmn_token_generated.c' %}
+
+{% include 'jsmn_token_crypto.c' %}

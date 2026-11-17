@@ -83,3 +83,70 @@ add_executable(test_pack test_pack.c)
 target_link_libraries(test_pack PRIVATE unity::framework runtime)
 add_test(NAME test_pack COMMAND test_pack)
 target_include_directories(test_pack PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
+
+# Signed tokens (x-jsmn-token). The hooks need an HMAC, so the tests build
+# against a crypto library on the host. JSMN_E2E_TOKEN_CRYPTO picks it:
+#   auto     OpenSSL, else Mbed TLS, else skip the token tests with a warning
+#   openssl  \ required: configuring fails when the library is missing, so
+#   mbedtls  / CI cannot pass by quietly skipping
+set(JSMN_E2E_TOKEN_CRYPTO auto CACHE STRING "Crypto backend of the token tests")
+set_property(CACHE JSMN_E2E_TOKEN_CRYPTO PROPERTY STRINGS auto openssl mbedtls)
+if(NOT JSMN_E2E_TOKEN_CRYPTO MATCHES "^(auto|openssl|mbedtls)$")
+  message(FATAL_ERROR "JSMN_E2E_TOKEN_CRYPTO: unknown '${JSMN_E2E_TOKEN_CRYPTO}'")
+endif()
+
+if(JSMN_E2E_TOKEN_CRYPTO MATCHES "^(auto|openssl)$")
+  find_package(OpenSSL QUIET)
+  if(OpenSSL_FOUND)
+    set(token_crypto openssl)
+    set(token_crypto_libs OpenSSL::Crypto)
+  endif()
+endif()
+if(NOT token_crypto AND JSMN_E2E_TOKEN_CRYPTO MATCHES "^(auto|mbedtls)$")
+  # Mbed TLS 3 installs a CMake package; distro packages of 2.x do not
+  find_package(MbedTLS CONFIG QUIET)
+  if(TARGET MbedTLS::mbedcrypto)
+    set(token_crypto mbedtls)
+    set(token_crypto_libs MbedTLS::mbedcrypto)
+  else()
+    find_library(MBEDCRYPTO_LIBRARY mbedcrypto)
+    find_path(MBEDCRYPTO_INCLUDE_DIR mbedtls/md.h)
+    if(MBEDCRYPTO_LIBRARY AND MBEDCRYPTO_INCLUDE_DIR)
+      add_library(token_mbedcrypto UNKNOWN IMPORTED)
+      set_target_properties(token_mbedcrypto PROPERTIES
+        IMPORTED_LOCATION "${MBEDCRYPTO_LIBRARY}"
+        INTERFACE_INCLUDE_DIRECTORIES "${MBEDCRYPTO_INCLUDE_DIR}")
+      set(token_crypto mbedtls)
+      set(token_crypto_libs token_mbedcrypto)
+    endif()
+  endif()
+endif()
+if(NOT token_crypto AND NOT JSMN_E2E_TOKEN_CRYPTO STREQUAL "auto")
+  message(FATAL_ERROR "token tests: ${JSMN_E2E_TOKEN_CRYPTO} was requested but not found")
+endif()
+
+if(token_crypto)
+  cmake_path(SET token_fixtures NORMALIZE "${workspace}/codegen/tests/fixtures/token")
+  file(GLOB token_specs "${token_fixtures}/*.yaml")
+  # cmake-format: off
+  jsmn_render(token_source
+  	TEMPLATES ${templates}/token_gen.h.jinja2 ${CMAKE_CURRENT_BINARY_DIR}/token/token_gen.h
+  			  ${templates}/token_gen.c.jinja2 ${CMAKE_CURRENT_BINARY_DIR}/token/token_gen.c
+  	GLOBAL token_crypto=${token_crypto}
+  	SPECS ${token_specs})
+  # cmake-format: on
+  add_library(token ${CMAKE_CURRENT_BINARY_DIR}/token/token_gen.h
+                    ${CMAKE_CURRENT_BINARY_DIR}/token/token_gen.c)
+  # jsmn.h is rendered by runtime_source
+  add_dependencies(token runtime_source)
+  target_include_directories(token PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/token"
+                                          "${CMAKE_CURRENT_BINARY_DIR}")
+  target_link_libraries(token PUBLIC ${token_crypto_libs})
+
+  add_executable(test_token test_token.c)
+  target_link_libraries(test_token PRIVATE unity::framework token)
+  add_test(NAME test_token COMMAND test_token)
+  message(STATUS "token tests: ${token_crypto} backend")
+else()
+  message(WARNING "token tests skipped: neither OpenSSL nor MbedTLS found")
+endif()

@@ -1,0 +1,68 @@
+openapi: "3.1.0"
+$id: "forge://e2e/token/v0"
+info:
+  title: Signed token e2e test
+  version: "0.1.0"
+components:
+  schemas:
+    # The claims jsmn-web-tokens signed in its tests, so its vectors carry over
+    web_claims:
+      type: object
+      x-jsmn-type: web_claims
+      x-jsmn-token: { alg: HS256 }
+      required: [iss, sub, iat, exp]
+      properties:
+        iss: { type: string, maxLength: 24 }
+        sub: { type: string, maxLength: 24 }
+        iat: { type: integer, format: uint32 }
+        exp: { type: integer, format: uint32 }
+
+    web_claims_384:
+      type: object
+      x-jsmn-type: web_claims_384
+      x-jsmn-token: { alg: HS384 }
+      required: [iss, sub, iat, exp]
+      properties:
+        iss: { type: string, maxLength: 24 }
+        sub: { type: string, maxLength: 24 }
+        iat: { type: integer, format: uint32 }
+        exp: { type: integer, format: uint32 }
+
+    web_claims_512:
+      type: object
+      x-jsmn-type: web_claims_512
+      x-jsmn-token: { alg: HS512 }
+      required: [iss, sub, iat, exp]
+      properties:
+        iss: { type: string, maxLength: 24 }
+        sub: { type: string, maxLength: 24 }
+        iat: { type: integer, format: uint32 }
+        exp: { type: integer, format: uint32 }
+
+    # No time claims: verify takes no clock
+    ticket:
+      type: object
+      x-jsmn-type: ticket
+      x-jsmn-token: { alg: HS256 }
+      required: [user, role]
+      properties:
+        user: { type: string, maxLength: 16 }
+        role: { type: integer, format: uint8 }
+
+    # Both time claims, one of them renamed in C
+    window:
+      type: object
+      x-jsmn-type: window
+      x-jsmn-token: {}
+      required: [nbf, exp]
+      properties:
+        nbf: { type: integer, format: uint32, x-jsmn-rename: not_before }
+        exp: { type: integer, format: uint32 }
+
+    # Not a token: must render no token code
+    plain:
+      type: object
+      x-jsmn-type: plain
+      required: [n]
+      properties:
+        n: { type: integer, format: uint8 }

@@ -1,0 +1,279 @@
+# serializer version: 1
+# name: test_render_token_generated_decl
+  '''
+  /* Longest HS256 token of struct web_claims, terminator excluded */
+  #define JSMN_WEB_CLAIMS_TOKEN_LEN (216)
+  
+  int32_t jsmn_token_sign_web_claims(
+      char *dst,
+      uint32_t dlen,
+      const struct web_claims *claims,
+      const struct jt_key *key);
+  
+  int32_t jsmn_token_verify_web_claims(
+      struct web_claims *dst,
+      const char *tok,
+      uint32_t tlen,
+      const struct jt_key *key,
+      uint32_t now);
+  
+  /* Longest HS384 token of struct web_claims_384, terminator excluded */
+  #define JSMN_WEB_CLAIMS_384_TOKEN_LEN (237)
+  
+  int32_t jsmn_token_sign_web_claims_384(
+      char *dst,
+      uint32_t dlen,
+      const struct web_claims_384 *claims,
+      const struct jt_key *key);
+  
+  int32_t jsmn_token_verify_web_claims_384(
+      struct web_claims_384 *dst,
+      const char *tok,
+      uint32_t tlen,
+      const struct jt_key *key,
+      uint32_t now);
+  
+  /* Longest HS512 token of struct web_claims_512, terminator excluded */
+  #define JSMN_WEB_CLAIMS_512_TOKEN_LEN (259)
+  
+  int32_t jsmn_token_sign_web_claims_512(
+      char *dst,
+      uint32_t dlen,
+      const struct web_claims_512 *claims,
+      const struct jt_key *key);
+  
+  int32_t jsmn_token_verify_web_claims_512(
+      struct web_claims_512 *dst,
+      const char *tok,
+      uint32_t tlen,
+      const struct jt_key *key,
+      uint32_t now);
+  
+  /* Longest HS256 token of struct ticket, terminator excluded */
+  #define JSMN_TICKET_TOKEN_LEN (132)
+  
+  int32_t jsmn_token_sign_ticket(
+      char *dst,
+      uint32_t dlen,
+      const struct ticket *claims,
+      const struct jt_key *key);
+  
+  int32_t jsmn_token_verify_ticket(
+      struct ticket *dst,
+      const char *tok,
+      uint32_t tlen,
+      const struct jt_key *key);
+  
+  /* Longest HS256 token of struct window, terminator excluded */
+  #define JSMN_WINDOW_TOKEN_LEN (128)
+  
+  int32_t jsmn_token_sign_window(
+      char *dst,
+      uint32_t dlen,
+      const struct window *claims,
+      const struct jt_key *key);
+  
+  int32_t jsmn_token_verify_window(
+      struct window *dst,
+      const char *tok,
+      uint32_t tlen,
+      const struct jt_key *key,
+      uint32_t now);
+  
+  
+  '''
+# ---
+# name: test_render_token_generated_impl
+  '''
+  static const struct jt_token jsmn_token_web_claims = {
+      .header     = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
+      .header_len = 36,
+      .alg        = JT_ALG_HS256,
+      .mac_len    = 32,
+      .claims     = JSMN_WEB_CLAIMS_KEY,
+      .claims_len = JSMN_WEB_CLAIMS_LEN,
+  };
+  
+  int32_t
+  jsmn_token_sign_web_claims(
+      char *dst,
+      uint32_t dlen,
+      const struct web_claims *claims,
+      const struct jt_key *key)
+  {
+      uint8_t scratch[JSMN_WEB_CLAIMS_LEN];
+      return jt_token_sign(
+          &jsmn_schemas, &jsmn_token_web_claims, dst, dlen, claims, key, scratch);
+  }
+  
+  int32_t
+  jsmn_token_verify_web_claims(
+      struct web_claims *dst,
+      const char *tok,
+      uint32_t tlen,
+      const struct jt_key *key,
+      uint32_t now)
+  {
+      uint8_t scratch[JSMN_WEB_CLAIMS_LEN];
+      jsmntok_t toks[JSMN_WEB_CLAIMS_NTOKS];
+      int32_t n = jt_token_verify(
+          &jsmn_schemas, &jsmn_token_web_claims, dst, tok, tlen, key, scratch,
+          toks, JSMN_WEB_CLAIMS_NTOKS);
+      if (n < 0) return n;
+      if ((int64_t)now >= (int64_t)dst->exp) return JT_ERR_TOKEN_EXPIRED;
+      return n;
+  }
+  static const struct jt_token jsmn_token_web_claims_384 = {
+      .header     = "eyJhbGciOiJIUzM4NCIsInR5cCI6IkpXVCJ9",
+      .header_len = 36,
+      .alg        = JT_ALG_HS384,
+      .mac_len    = 48,
+      .claims     = JSMN_WEB_CLAIMS_384_KEY,
+      .claims_len = JSMN_WEB_CLAIMS_384_LEN,
+  };
+  
+  int32_t
+  jsmn_token_sign_web_claims_384(
+      char *dst,
+      uint32_t dlen,
+      const struct web_claims_384 *claims,
+      const struct jt_key *key)
+  {
+      uint8_t scratch[JSMN_WEB_CLAIMS_384_LEN];
+      return jt_token_sign(
+          &jsmn_schemas, &jsmn_token_web_claims_384, dst, dlen, claims, key, scratch);
+  }
+  
+  int32_t
+  jsmn_token_verify_web_claims_384(
+      struct web_claims_384 *dst,
+      const char *tok,
+      uint32_t tlen,
+      const struct jt_key *key,
+      uint32_t now)
+  {
+      uint8_t scratch[JSMN_WEB_CLAIMS_384_LEN];
+      jsmntok_t toks[JSMN_WEB_CLAIMS_384_NTOKS];
+      int32_t n = jt_token_verify(
+          &jsmn_schemas, &jsmn_token_web_claims_384, dst, tok, tlen, key, scratch,
+          toks, JSMN_WEB_CLAIMS_384_NTOKS);
+      if (n < 0) return n;
+      if ((int64_t)now >= (int64_t)dst->exp) return JT_ERR_TOKEN_EXPIRED;
+      return n;
+  }
+  static const struct jt_token jsmn_token_web_claims_512 = {
+      .header     = "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9",
+      .header_len = 36,
+      .alg        = JT_ALG_HS512,
+      .mac_len    = 64,
+      .claims     = JSMN_WEB_CLAIMS_512_KEY,
+      .claims_len = JSMN_WEB_CLAIMS_512_LEN,
+  };
+  
+  int32_t
+  jsmn_token_sign_web_claims_512(
+      char *dst,
+      uint32_t dlen,
+      const struct web_claims_512 *claims,
+      const struct jt_key *key)
+  {
+      uint8_t scratch[JSMN_WEB_CLAIMS_512_LEN];
+      return jt_token_sign(
+          &jsmn_schemas, &jsmn_token_web_claims_512, dst, dlen, claims, key, scratch);
+  }
+  
+  int32_t
+  jsmn_token_verify_web_claims_512(
+      struct web_claims_512 *dst,
+      const char *tok,
+      uint32_t tlen,
+      const struct jt_key *key,
+      uint32_t now)
+  {
+      uint8_t scratch[JSMN_WEB_CLAIMS_512_LEN];
+      jsmntok_t toks[JSMN_WEB_CLAIMS_512_NTOKS];
+      int32_t n = jt_token_verify(
+          &jsmn_schemas, &jsmn_token_web_claims_512, dst, tok, tlen, key, scratch,
+          toks, JSMN_WEB_CLAIMS_512_NTOKS);
+      if (n < 0) return n;
+      if ((int64_t)now >= (int64_t)dst->exp) return JT_ERR_TOKEN_EXPIRED;
+      return n;
+  }
+  static const struct jt_token jsmn_token_ticket = {
+      .header     = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
+      .header_len = 36,
+      .alg        = JT_ALG_HS256,
+      .mac_len    = 32,
+      .claims     = JSMN_TICKET_KEY,
+      .claims_len = JSMN_TICKET_LEN,
+  };
+  
+  int32_t
+  jsmn_token_sign_ticket(
+      char *dst,
+      uint32_t dlen,
+      const struct ticket *claims,
+      const struct jt_key *key)
+  {
+      uint8_t scratch[JSMN_TICKET_LEN];
+      return jt_token_sign(
+          &jsmn_schemas, &jsmn_token_ticket, dst, dlen, claims, key, scratch);
+  }
+  
+  int32_t
+  jsmn_token_verify_ticket(
+      struct ticket *dst,
+      const char *tok,
+      uint32_t tlen,
+      const struct jt_key *key)
+  {
+      uint8_t scratch[JSMN_TICKET_LEN];
+      jsmntok_t toks[JSMN_TICKET_NTOKS];
+      int32_t n = jt_token_verify(
+          &jsmn_schemas, &jsmn_token_ticket, dst, tok, tlen, key, scratch,
+          toks, JSMN_TICKET_NTOKS);
+      if (n < 0) return n;
+      return n;
+  }
+  static const struct jt_token jsmn_token_window = {
+      .header     = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
+      .header_len = 36,
+      .alg        = JT_ALG_HS256,
+      .mac_len    = 32,
+      .claims     = JSMN_WINDOW_KEY,
+      .claims_len = JSMN_WINDOW_LEN,
+  };
+  
+  int32_t
+  jsmn_token_sign_window(
+      char *dst,
+      uint32_t dlen,
+      const struct window *claims,
+      const struct jt_key *key)
+  {
+      uint8_t scratch[JSMN_WINDOW_LEN];
+      return jt_token_sign(
+          &jsmn_schemas, &jsmn_token_window, dst, dlen, claims, key, scratch);
+  }
+  
+  int32_t
+  jsmn_token_verify_window(
+      struct window *dst,
+      const char *tok,
+      uint32_t tlen,
+      const struct jt_key *key,
+      uint32_t now)
+  {
+      uint8_t scratch[JSMN_WINDOW_LEN];
+      jsmntok_t toks[JSMN_WINDOW_NTOKS];
+      int32_t n = jt_token_verify(
+          &jsmn_schemas, &jsmn_token_window, dst, tok, tlen, key, scratch,
+          toks, JSMN_WINDOW_NTOKS);
+      if (n < 0) return n;
+      if ((int64_t)now < (int64_t)dst->not_before) return JT_ERR_TOKEN_NOT_YET;
+      if ((int64_t)now >= (int64_t)dst->exp) return JT_ERR_TOKEN_EXPIRED;
+      return n;
+  }
+  
+  '''
+# ---

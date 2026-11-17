@@ -261,6 +261,8 @@ def codegen_loaders() -> tuple[BaseLoader, ...]:
         "jsmn.h": read_and_strip(runtime_dir / "jsmn.h"),
         "runtime.h": read_and_strip(runtime_dir / "runtime.h"),
         "runtime.c": read_and_strip(runtime_dir / "runtime.c"),
+        "token.h": read_and_strip(runtime_dir / "token.h"),
+        "token.c": read_and_strip(runtime_dir / "token.c"),
     }
     runtime_loader = DictLoader(runtime_mapping)
     package_loader = PackageLoader("jsmn_tools", "jsmn/templates")

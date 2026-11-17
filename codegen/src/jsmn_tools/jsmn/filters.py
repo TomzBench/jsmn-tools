@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import json
 import re
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
@@ -84,6 +86,21 @@ _ARRAY_KINDS: dict[ArrayKind, str] = {
     ArrayKind.STRING: "JT_KIND_STRING",
     ArrayKind.VLA: "JT_KIND_VLA",
 }
+
+
+# Message authentication code size, in bytes, per x-jsmn-token alg
+_TOKEN_MAC_LEN = {"HS256": 32, "HS384": 48, "HS512": 64}
+
+
+def b64url(data: str | bytes) -> str:
+    """base64url without padding (RFC 4648 section 5), as RFC 7515 uses it."""
+    raw = data.encode("utf-8") if isinstance(data, str) else data
+    return base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")
+
+
+def b64url_len(nbytes: int) -> int:
+    """Length of the unpadded base64url encoding of *nbytes* bytes."""
+    return (nbytes * 4 + 2) // 3
 
 
 def tests(
@@ -359,6 +376,58 @@ def filters(
         fn = _RENAME_FNS.get(rule)
         return fn(name) if fn else name
 
+    # ── Signed tokens (x-jsmn-token) ──────────────────────────────────
+
+    def token(d: Descriptors) -> dict[str, Any] | None:
+        """Describe the signed token a schema declares with ``x-jsmn-token``.
+
+        Returns None for a schema that declares none. The protected header
+        is fixed by the declaration, so it is encoded here, once, and the
+        generated code compares it instead of parsing it.
+        """
+        if not isinstance(d, StructDescriptor):
+            return None
+        decl = location(d, "x-jsmn-token")
+        if decl is None:
+            return None
+        if not isinstance(decl, dict):
+            raise ValueError(
+                f"{d.ctype.name}: x-jsmn-token must be a mapping, "
+                f"for example {{alg: HS256}}"
+            )
+        alg = decl.get("alg", "HS256")
+        if alg not in _TOKEN_MAC_LEN:
+            raise ValueError(
+                f"{d.ctype.name}: x-jsmn-token alg {alg!r} is not supported "
+                f"(expected one of {', '.join(_TOKEN_MAC_LEN)})"
+            )
+        typ = decl.get("typ", "JWT")
+        header = b64url(
+            json.dumps({"alg": alg, "typ": typ}, separators=(",", ":"))
+        )
+        mac_len = _TOKEN_MAC_LEN[alg]
+        required = location(d, "required") or []
+        properties = location(d, "properties") or {}
+
+        def claim(name: str) -> str | None:
+            # A time claim is enforced only when every token carries it.
+            if name in properties and name in required:
+                return _rename_field(name, d)
+            return None
+
+        return {
+            "alg": alg,
+            "mac_len": mac_len,
+            "header": header,
+            "len": len(header)
+            + 1
+            + b64url_len(d.encode_len)
+            + 1
+            + b64url_len(mac_len),
+            "exp": claim("exp"),
+            "nbf": claim("nbf"),
+        }
+
     # ── JSON pointer filter (resolve $ref via resolver) ───────────────
 
     def json_pointer(ref: str, base: str | None = None) -> Any:
@@ -394,6 +463,8 @@ def filters(
         "shim_mode_or": shim_mode_or,
         "location": location,
         "caseify": caseify,
+        "token": token,
+        "b64url": b64url,
     }
 
     return result

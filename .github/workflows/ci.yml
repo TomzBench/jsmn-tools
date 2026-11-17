@@ -28,20 +28,29 @@ jobs:
           echo "Radon check passed (threshold: D)"
 
   e2e:
-    name: E2E (${{ matrix.os }})
+    name: E2E (${{ matrix.os }}, ${{ matrix.crypto }})
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        # crypto is the backend the signed-token tests link. Naming one makes
+        # it required; auto uses what the runner has and skips them otherwise.
+        include:
+          - { os: ubuntu-latest, crypto: openssl }
+          - { os: ubuntu-latest, crypto: mbedtls }
+          - { os: windows-latest, crypto: auto }
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v4
       - uses: ilammy/msvc-dev-cmd@v1
         if: runner.os == 'Windows'
+      - name: Crypto libraries
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev libmbedtls-dev
       - run: uv sync
 
       - name: Configure
-        run: uv run cmake -B build -S codegen/tests/e2e -G Ninja
+        run: uv run cmake -B build -S codegen/tests/e2e -G Ninja -DJSMN_E2E_TOKEN_CRYPTO=${{ matrix.crypto }}
 
       - name: Build
         run: cmake --build build

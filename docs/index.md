@@ -202,6 +202,9 @@ No heap allocation. No dependencies beyond the generated files.
 ```{include} plugins.md
 ```
 
+```{include} tokens.md
+```
+
 ```{include} bundle.md
 ```
 
