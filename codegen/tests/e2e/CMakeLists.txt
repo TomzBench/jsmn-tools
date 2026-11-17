@@ -85,15 +85,44 @@ add_test(NAME test_pack COMMAND test_pack)
 target_include_directories(test_pack PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
 
 # Signed tokens (x-jsmn-token). The hooks need an HMAC, so the tests build
-# against whichever crypto library the host has; without one they are skipped.
-find_package(OpenSSL QUIET)
-find_package(MbedTLS QUIET)
-if(OpenSSL_FOUND)
-  set(token_crypto openssl)
-  set(token_crypto_libs OpenSSL::Crypto)
-elseif(MbedTLS_FOUND)
-  set(token_crypto mbedtls)
-  set(token_crypto_libs MbedTLS::mbedcrypto)
+# against a crypto library on the host. JSMN_E2E_TOKEN_CRYPTO picks it:
+#   auto     OpenSSL, else Mbed TLS, else skip the token tests with a warning
+#   openssl  \ required: configuring fails when the library is missing, so
+#   mbedtls  / CI cannot pass by quietly skipping
+set(JSMN_E2E_TOKEN_CRYPTO auto CACHE STRING "Crypto backend of the token tests")
+set_property(CACHE JSMN_E2E_TOKEN_CRYPTO PROPERTY STRINGS auto openssl mbedtls)
+if(NOT JSMN_E2E_TOKEN_CRYPTO MATCHES "^(auto|openssl|mbedtls)$")
+  message(FATAL_ERROR "JSMN_E2E_TOKEN_CRYPTO: unknown '${JSMN_E2E_TOKEN_CRYPTO}'")
+endif()
+
+if(JSMN_E2E_TOKEN_CRYPTO MATCHES "^(auto|openssl)$")
+  find_package(OpenSSL QUIET)
+  if(OpenSSL_FOUND)
+    set(token_crypto openssl)
+    set(token_crypto_libs OpenSSL::Crypto)
+  endif()
+endif()
+if(NOT token_crypto AND JSMN_E2E_TOKEN_CRYPTO MATCHES "^(auto|mbedtls)$")
+  # Mbed TLS 3 installs a CMake package; distro packages of 2.x do not
+  find_package(MbedTLS CONFIG QUIET)
+  if(TARGET MbedTLS::mbedcrypto)
+    set(token_crypto mbedtls)
+    set(token_crypto_libs MbedTLS::mbedcrypto)
+  else()
+    find_library(MBEDCRYPTO_LIBRARY mbedcrypto)
+    find_path(MBEDCRYPTO_INCLUDE_DIR mbedtls/md.h)
+    if(MBEDCRYPTO_LIBRARY AND MBEDCRYPTO_INCLUDE_DIR)
+      add_library(token_mbedcrypto UNKNOWN IMPORTED)
+      set_target_properties(token_mbedcrypto PROPERTIES
+        IMPORTED_LOCATION "${MBEDCRYPTO_LIBRARY}"
+        INTERFACE_INCLUDE_DIRECTORIES "${MBEDCRYPTO_INCLUDE_DIR}")
+      set(token_crypto mbedtls)
+      set(token_crypto_libs token_mbedcrypto)
+    endif()
+  endif()
+endif()
+if(NOT token_crypto AND NOT JSMN_E2E_TOKEN_CRYPTO STREQUAL "auto")
+  message(FATAL_ERROR "token tests: ${JSMN_E2E_TOKEN_CRYPTO} was requested but not found")
 endif()
 
 if(token_crypto)
