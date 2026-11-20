@@ -1,7 +1,9 @@
 from collections.abc import Iterator
 from typing import Any, NamedTuple
 
-from jsmn_tools.node import ROOT, Behavior, Location, Node, ObjectNode
+from jsmn_tools.node import ROOT, Behavior, Location, ObjectNode
+
+from .children import Context, children
 
 
 class Step[K: str](NamedTuple):
@@ -18,16 +20,8 @@ def walk[K: str](*args: Any, draft: ObjectNode[K]) -> Iterator[Step[K]]:
         yield from _walk(obj, root, loc)
 
 
-def _walk(
-    obj: Any,
-    context: tuple[Node[Any], Behavior],
-    loc: Location,
-) -> Iterator[Step[Any]]:
+def _walk(obj: Any, context: Context, loc: Location) -> Iterator[Step[Any]]:
     (node, _) = context
     yield Step(obj, node.kind, loc)
-    if isinstance(obj, dict):
-        for key, val in obj.items():
-            yield from _walk(val, node.child(key), loc.push(key))
-    elif isinstance(obj, list):
-        for i, item in enumerate(obj):
-            yield from _walk(item, context, loc.push(str(i)))
+    for child in children(obj, context, loc):
+        yield from _walk(*child)

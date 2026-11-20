@@ -76,5 +76,10 @@ def test_dangling() -> None:
         (
             "/paths/~1x/get/responses/200/content/application~1json/schema",
             "#/components/schemas/gone",
-        )
+        ),
+        # found inside the schema of a property that is itself named "$ref"
+        (
+            "/components/schemas/named/properties/$ref",
+            "#/components/schemas/lost",
+        ),
     ]

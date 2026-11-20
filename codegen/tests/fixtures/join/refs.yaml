@@ -15,6 +15,15 @@ components:
     with_siblings:
       $ref: "#/components/schemas/target"
       description: "has sibling keys"
+    in_definitions:
+      definitions:
+        x-legacy:
+          $ref: "forge://sdk/common/v0#/components/schemas/Qux"
+    named_ref:
+      type: object
+      properties:
+        $ref:
+          $ref: "forge://sdk/common/v0#/components/schemas/Quux"
     data_traps:
       type: object
       default:
