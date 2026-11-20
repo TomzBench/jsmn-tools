@@ -1,0 +1,9 @@
+components:
+  schemas:
+    matrix:
+      enum:
+        - [3, 1, 2]
+        - b
+      examples:
+        - [9, 8]
+        - [7, 6]

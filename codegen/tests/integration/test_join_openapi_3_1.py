@@ -22,7 +22,7 @@ def _join(*specs: dict, draft: Any) -> JoinResult:
 @pytest.fixture
 def walk_data() -> dict[str, Any]:
     walk = Path(__file__).parent.parent.absolute() / "fixtures" / "join"
-    return {file.stem: yaml.load(file) for file in walk.iterdir()}
+    return {file.stem: yaml.load(file) for file in walk.glob("*.yaml")}
 
 
 def test_join_schema_sets(walk_data: dict[str, Any]) -> None:

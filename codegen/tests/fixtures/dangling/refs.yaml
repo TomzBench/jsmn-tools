@@ -25,3 +25,9 @@ components:
     data:
       default:
         $ref: "#/not/a/ref"
+    # a property NAMED "$ref": a name, not a reference; its schema is crawled
+    named:
+      type: object
+      properties:
+        $ref:
+          $ref: "#/components/schemas/lost"

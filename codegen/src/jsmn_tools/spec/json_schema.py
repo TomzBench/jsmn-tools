@@ -28,6 +28,8 @@ _SCHEMA_KEYWORDS: dict[str, tuple[Node[Any], Behavior]] = {
     # Sub-schema maps (user-defined keys -> schemas)
     "properties":               (map_schema, _NO_BHV),
     "$defs":                    (map_schema, _NO_BHV),
+    # pre-2019-09 name of $defs; still common in the wild
+    "definitions":              (map_schema, _NO_BHV),
     "patternProperties":        (map_schema, _NO_BHV),
     "dependentSchemas":         (map_schema, _NO_BHV),
     # Single sub-schema keywords
