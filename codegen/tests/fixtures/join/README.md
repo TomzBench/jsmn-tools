@@ -41,10 +41,10 @@ Two more rules decide how far a place reaches:
 itself be an array, and then its order is part of the value: `[3, 1, 2]` and
 `[1, 2, 3]` are different enum members.
 
-The crawl treats a list as transparent: an item is at the same place in the
-draft as the list that holds it. Normalize once passed the identity down along
-with the place, so an array-valued member was sorted too and `[3, 1, 2]` became
-`[1, 2, 3]`, silently changing the schema. The fixture holds one set of each
+An identity describes the list it is given to, not the items in it: an item
+gets its behavior from the list's node, as a dict value does. Normalize once
+passed the list's identity down to its items, so an array-valued member was
+sorted too and `[3, 1, 2]` became `[1, 2, 3]`, silently changing the schema. The fixture holds one set of each
 kind with array members written out of order; the test checks that the outer
 list is sorted and the inner ones are not.
 

@@ -33,8 +33,7 @@ def _show(path: Sequence[str]) -> str:
 def _context(doc: Any, path: Location, context: Context) -> Context:
     """The draft's node and behavior for the value at *path* in *doc*."""
     for key in path:
-        if isinstance(doc, dict):
-            context = context[0].child(key)
+        context = context[0].child(key)
         doc = Location((key,)).resolve(doc)
     return context
 
@@ -63,6 +62,8 @@ def _differences(
             else:
                 yield from _differences(a[k], b[k], node.child(k), at)
     elif isinstance(a, list) and isinstance(b, list):
+        # no node tells one index from another: every item has one context
+        item = node.child("0")
         ia = _keyed(a, behavior)
         ib = _keyed(b, behavior)
         for k in (*ia, *(k for k in ib if k not in ia)):
@@ -72,7 +73,7 @@ def _differences(
             elif k not in ia:
                 yield (at, ">")
             else:
-                yield from _differences(ia[k], ib[k], context, at)
+                yield from _differences(ia[k], ib[k], item, at)
     elif a != b:
         (x, y) = (_json(a), _json(b))
         yield (path, f"{x} != {y}")

@@ -48,6 +48,10 @@ class OpenAPIKind(StrEnum):
     MAP_CALLBACK = "map_callback"
     MAP_SERVER_VAR = "map_server_var"
     MAP_SCOPE = "map_scope"
+    # List nodes
+    LIST_SERVER = "list_server"
+    LIST_PARAMETER = "list_parameter"
+    LIST_SECURITY = "list_security"
 
 
 obj_root: ObjectNode[DraftKeys[OpenApi31Keys]] = ObjectNode(OpenAPIKind.ROOT)
@@ -76,14 +80,18 @@ map_callback = MapNode(OpenAPIKind.MAP_CALLBACK)
 map_server_var = MapNode(OpenAPIKind.MAP_SERVER_VAR)
 map_scope = MapNode(OpenAPIKind.MAP_SCOPE)
 
+list_server = MapNode(OpenAPIKind.LIST_SERVER)
+list_parameter = MapNode(OpenAPIKind.LIST_PARAMETER)
+list_security = MapNode(OpenAPIKind.LIST_SECURITY)
+
 
 # fmt: off
 obj_root.configure(table={
     "paths":            (map_path_item, _NO_BHV),
     "webhooks":         (map_path_item, _NO_BHV),
     "components":       (obj_components, _NO_BHV),
-    "servers":          (obj_server, _NO_BHV),
-    "security":         (map_scope, Behavior(identity=canonical)),
+    "servers":          (list_server, _NO_BHV),
+    "security":         (list_security, Behavior(identity=canonical)),
 })
 
 obj_info.configure(table={})
@@ -109,17 +117,17 @@ obj_path_item.configure(table={
     "head":             (obj_operation, NAMED),
     "patch":            (obj_operation, NAMED),
     "trace":            (obj_operation, NAMED),
-    "parameters":       (obj_parameter, Behavior(identity=_param_key)),
-    "servers":          (obj_server, _NO_BHV),
+    "parameters":       (list_parameter, Behavior(identity=_param_key)),
+    "servers":          (list_server, _NO_BHV),
 })
 
 obj_operation.configure(table={
     "requestBody":      (obj_request_body, _NO_BHV),
     "responses":        (map_response, _NO_BHV),
     "callbacks":        (map_callback, _NO_BHV),
-    "parameters":       (obj_parameter, Behavior(identity=_param_key)),
-    "servers":          (obj_server, _NO_BHV),
-    "security":         (map_scope, Behavior(identity=canonical)),
+    "parameters":       (list_parameter, Behavior(identity=_param_key)),
+    "servers":          (list_server, _NO_BHV),
+    "security":         (list_security, Behavior(identity=canonical)),
     "tags":             (data, Behavior(identity=str)),
 })
 
@@ -170,6 +178,10 @@ map_link.configure(child=obj_link)
 map_callback.configure(child=map_path_item)
 map_server_var.configure(child=obj_server_var)
 map_scope.configure(child=data, behavior=Behavior(identity=str))
+
+list_server.configure(child=obj_server)
+list_parameter.configure(child=obj_parameter)
+list_security.configure(child=map_scope)
 # fmt: on
 
 type OpenApi31Keys = DraftKeys[OpenAPIKind]

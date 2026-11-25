@@ -16,6 +16,7 @@ from jsmn_tools.node import (
 map_schema       = MapNode(SchemaKind.MAP_SCHEMA)
 map_schema_enter = MapNode(SchemaKind.MAP_SCHEMA_ENTER)
 map_string_set   = MapNode(SchemaKind.MAP_STRING_SET)
+list_schema      = MapNode(SchemaKind.LIST_SCHEMA)
 schema           = SchemaNode(SchemaKind.SCHEMA)
 schema_enter     = SchemaNode(SchemaKind.SCHEMA_ENTER)
 
@@ -41,7 +42,6 @@ _SCHEMA_KEYWORDS: dict[str, tuple[Node[Any], Behavior]] = {
     "else":                     (schema, _NO_BHV),
     "contains":                 (schema, _NO_BHV),
     "propertyNames":            (schema, _NO_BHV),
-    "prefixItems":              (schema, _NO_BHV),
     "unevaluatedItems":         (schema, _NO_BHV),
     "unevaluatedProperties":    (schema, _NO_BHV),
     # String set map
@@ -59,12 +59,14 @@ _SCHEMA_KEYWORDS: dict[str, tuple[Node[Any], Behavior]] = {
     "required":                 (data, Behavior(identity=str)),
     "enum":                     (data, Behavior(identity=canonical)),
     "type":                     (data, Behavior(identity=str)),
-    # Schema set-like arrays (sorted)
-    "anyOf":                    (schema, Behavior(identity=canonical)),
-    "oneOf":                    (schema, Behavior(identity=canonical)),
-    "allOf":                    (schema, Behavior(identity=canonical)),
+    # Schema lists; all but prefixItems are set-like (sorted)
+    "prefixItems":              (list_schema, _NO_BHV),
+    "anyOf":                    (list_schema, Behavior(identity=canonical)),
+    "oneOf":                    (list_schema, Behavior(identity=canonical)),
+    "allOf":                    (list_schema, Behavior(identity=canonical)),
 }
 # fmt: on
 
+list_schema.configure(child=schema)
 schema.configure(keywords=_SCHEMA_KEYWORDS, fallback=schema)
 schema_enter.configure(keywords=_SCHEMA_KEYWORDS, fallback=schema)
