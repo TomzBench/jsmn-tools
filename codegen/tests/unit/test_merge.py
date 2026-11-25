@@ -1,4 +1,4 @@
-from jsmn_tools.node import Behavior, Location, data
+from jsmn_tools.node import NAMED, Behavior, Location, MapNode, data
 from jsmn_tools.walk import merge
 
 
@@ -22,3 +22,15 @@ def test_dict_identity_pairs_keys() -> None:
     (value, conflicts) = merge({"Port": 1}, {"port": 2, "x": 3}, (data, folded))
     assert value == {"Port": 1, "x": 3}
     assert [c.location for c in conflicts] == [Location(("Port",))]
+
+
+def test_list_item_has_its_own_behavior() -> None:
+    """An item gets the context its list's node gives it, not the list's:
+    here the fields of an item are named, so one is compared whole."""
+    ports: MapNode[str] = MapNode("list_port")
+    ports.configure(child=data, behavior=NAMED)
+    dst = [{"port": {"speed": 1}}]
+    src = [{"port": {"speed": 2}}]
+    (value, conflicts) = merge(dst, src, (ports, Behavior()))
+    assert value == dst
+    assert [c.location for c in conflicts] == [Location(("0", "port"))]

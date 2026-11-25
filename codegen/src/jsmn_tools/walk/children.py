@@ -3,7 +3,7 @@
 from collections.abc import Iterator
 from typing import Any, NamedTuple
 
-from jsmn_tools.node import _NO_BHV, Behavior, Location, Node
+from jsmn_tools.node import Behavior, Location, Node
 
 type Context = tuple[Node[Any], Behavior]
 
@@ -19,21 +19,21 @@ def entries(
     context: Context,
     loc: Location,
 ) -> Iterator[tuple[str, Child]]:
-    """A key is a transition: each value gets the context its key leads to."""
+    """A key is a transition: each value gets the context its key leads to.
+
+    That is the whole rule, for a list too: its index is its key.
+    """
     (node, _) = context
     for key, val in obj.items():
         yield key, Child(val, node.child(key), loc.push(key))
 
 
 def items(obj: list[Any], context: Context, loc: Location) -> Iterator[Child]:
-    """A list is transparent: each item keeps the node of the list.
-
-    The behavior describes the list as a collection, so it stops here.
-    """
+    """The entries of a list, without the keys: an index names no one."""
     (node, _) = context
-    elem = (node, _NO_BHV)
     for i, val in enumerate(obj):
-        yield Child(val, elem, loc.push(str(i)))
+        key = str(i)
+        yield Child(val, node.child(key), loc.push(key))
 
 
 def children(obj: Any, context: Context, loc: Location) -> Iterator[Child]:

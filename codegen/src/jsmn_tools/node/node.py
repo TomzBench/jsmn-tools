@@ -20,6 +20,7 @@ class SchemaKind(StrEnum):
     MAP_SCHEMA = "map_schema"
     MAP_SCHEMA_ENTER = "map_schema_enter"
     MAP_STRING_SET = "map_string_set"
+    LIST_SCHEMA = "list_schema"
 
 
 class DataNode:
@@ -41,6 +42,11 @@ data = DataNode()
 
 
 class MapNode[E: str]:
+    """A collection of one kind of thing: a map or a list.
+
+    Every entry leads to the same child, whatever its key or its index.
+    """
+
     opaque = False
 
     def __init__(self, kind: E) -> None:

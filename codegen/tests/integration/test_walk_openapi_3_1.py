@@ -42,3 +42,24 @@ def test_walk_multi_spec() -> None:
     solo_a = list(walk(a, draft=OPENAPI_3_1))
     solo_b = list(walk(b, draft=OPENAPI_3_1))
     assert len(combined) == len(solo_a) + len(solo_b)
+
+
+def test_walk_list_kinds() -> None:
+    steps = walk(load("lists.yaml"), draft=OPENAPI_3_1)
+    kinds = {s.location.to_pointer(): s.kind for s in steps}
+    params = "/paths/~1items/parameters"
+    schema = "/paths/~1items/get/responses/200/content/application~1json/schema"
+    assert kinds["/servers"] == "list_server"
+    assert kinds["/servers/0"] == "server"
+    assert kinds["/servers/0/variables"] == "map_server_var"
+    assert kinds["/security"] == "list_security"
+    assert kinds["/security/0"] == "map_scope"
+    assert kinds[params] == "list_parameter"
+    assert kinds[f"{params}/0"] == "parameter"
+    assert kinds[f"{params}/0/schema/anyOf"] == "list_schema"
+    assert kinds[f"{params}/0/schema/anyOf/0"] == "schema"
+    assert kinds[f"{schema}/prefixItems"] == "list_schema"
+    assert kinds[f"{schema}/prefixItems/0"] == "schema"
+    assert kinds[f"{schema}/enum"] == "data"
+    assert kinds[f"{schema}/enum/0"] == "data"
+    assert kinds[f"{schema}/enum/0/0"] == "data"

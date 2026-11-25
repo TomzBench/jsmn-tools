@@ -68,7 +68,7 @@ def _merge_list(
 ) -> list[Any]:
     """Position by position; the items of an identified list are paired by
     identity, compared whole, and kept sorted."""
-    (_, behavior) = context
+    (node, behavior) = context
     if identity := behavior.identity:
         seen = {identity(x): x for x in dst}
         for item in src:
@@ -80,7 +80,7 @@ def _merge_list(
                 seen[k] = _leaf(seen[k], item, loc, conflicts)
         return sorted(seen.values(), key=identity)
     merged = [
-        _merge(a, b, context, loc.push(str(i)), conflicts)
+        _merge(a, b, node.child(str(i)), loc.push(str(i)), conflicts)
         for i, (a, b) in enumerate(zip(dst, src, strict=False))
     ]
     return merged + [deepcopy(x) for x in src[len(dst) :]]
